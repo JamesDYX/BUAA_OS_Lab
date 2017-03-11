@@ -26,6 +26,7 @@ LEAF(_start)           /*在asm.h中定义的叶子函数，叶子函数不调�
 	and	t0, ~0x7
 	ori	t0, 0x2
 	mtc0	t0, CP0_CONFIG
+
 	lui	sp,0x8040
 	
 /*To do: 
