@@ -15,14 +15,6 @@
 int main()
 {
 	printf("main.c:\tmain is start ...\n");
-	/*printf("Characters: %c %c \n",'a',65);
-	printf("Decimals %d %ld\n",1977,650000L);
-	printf("Blanks %10d\n",1977);
-	printf("Blanks %-10d\n",1977);
-	printf("Blanks %010d\n",1977);
-	printf("Radices:%d %x %o %b\n",100,100,100,100);
-	printf("%s\n","A string");
-	*/
 
 	mips_init();
 	panic("main is over is error!");
