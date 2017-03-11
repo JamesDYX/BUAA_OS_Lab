@@ -26,7 +26,7 @@ LEAF(_start)           /*在asm.h中定义的叶子函数，叶子函数不调�
 	and	t0, ~0x7
 	ori	t0, 0x2
 	mtc0	t0, CP0_CONFIG
-	li	sp,0x80010000
+	lui	sp,0x8040
 	
 /*To do: 
   set up stack 
@@ -34,7 +34,4 @@ LEAF(_start)           /*在asm.h中定义的叶子函数，叶子函数不调�
 */
 
 			
-loop:
-	j	loop
-	nop
 END(_start)            /*��asm.h�ж���ĺ���*/
