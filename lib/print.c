@@ -49,10 +49,10 @@ lp_Print(void (*output)(void *, char *, int),
 
     int longFlag;
     int negFlag;
-    int width;
+    int width = 0;
     int prec;
-    int ladjust;
-    char padc;
+    int ladjust = 0;
+    char padc = ' ';
 
     int length;
 
@@ -60,21 +60,32 @@ lp_Print(void (*output)(void *, char *, int),
 	{ 
 	    /* scan for the next '%' */
 	    /* flush the string found so far */
-	while (*fmt!='%' && *fmt!=0) {
-		OUTPUT(arg,fmt,1);
-		fmt++;
-	}
-	if (*fmt==0) break;
-
+		while (*fmt!='%' && (*fmt)!=0) {
+			OUTPUT(arg,fmt,1);
+			fmt++;
+		}
+		if (*fmt==0) break;
 	    /* are we hitting the end? */
 	}
 
 	/* we found a '%' */
 	fmt++;	
 	/* check for long */
-	longFlag = (*fmt)=='l';
-	ladjust = (*fmt)=='-';
+	if ((*fmt)=='-') {
+		ladjust = 1;
+		fmt++;
+	} else if ((*fmt)=='0') {
+		padc = '0';
+		fmt++;
+	}		
 	/* check for other prefixes */
+	while(IsDigit(*fmt) && (*fmt)!=0) {
+		width = width*10+(*fmt)-'0';	
+		fmt++;
+	}
+	longFlag = (*fmt)=='l';	
+	if ((*fmt)==0) break;
+	fmt = longFlag? fmt+1:fmt;
 
 	/* check format flag */
 	negFlag = 0;
@@ -202,11 +213,11 @@ PrintString(char * buf, char* s, int length, int ladjust)
     if (length < len) length = len;
 
     if (ladjust) {
-	for (i=0; i< len; i++) buf[i] = s[i];
-	for (i=len; i< length; i++) buf[i] = ' ';
+		for (i=0; i< len; i++) buf[i] = s[i];
+		for (i=len; i< length; i++) buf[i] = ' ';
     } else {
-	for (i=0; i< length-len; i++) buf[i] = ' ';
-	for (i=length-len; i < length; i++) buf[i] = s[i-length+len];
+		for (i=0; i< length-len; i++) buf[i] = ' ';
+		for (i=length-len; i < length; i++) buf[i] = s[i-length+len];
     }
     return length;
 }
@@ -230,19 +241,19 @@ PrintNum(char * buf, unsigned long u, int base, int negFlag,
     int i;
 
     do {
-	int tmp = u %base;
-	if (tmp <= 9) {
-	    *p++ = '0' + tmp;
-	} else if (upcase) {
-	    *p++ = 'A' + tmp - 10;
-	} else {
-	    *p++ = 'a' + tmp - 10;
-	}
-	u /= base;
+		int tmp = u %base;
+		if (tmp <= 9) {
+		    *p++ = '0' + tmp;
+		} else if (upcase) {
+		    *p++ = 'A' + tmp - 10;
+		} else {
+		    *p++ = 'a' + tmp - 10;
+		}
+		u /= base;
     } while (u != 0);
 
     if (negFlag) {
-	*p++ = '-';
+		*p++ = '-';
     }
 
     /* figure out actual length and adjust the maximum length */
@@ -251,13 +262,13 @@ PrintNum(char * buf, unsigned long u, int base, int negFlag,
 
     /* add padding */
     if (ladjust) {
-	padc = ' ';
+		padc = ' ';
     }
     if (negFlag && !ladjust && (padc == '0')) {
-	for (i = actualLength-1; i< length-1; i++) buf[i] = padc;
-	buf[length -1] = '-';
+		for (i = actualLength-1; i< length-1; i++) buf[i] = padc;
+		buf[length -1] = '-';
     } else {
-	for (i = actualLength; i< length; i++) buf[i] = padc;
+		for (i = actualLength; i< length; i++) buf[i] = padc;
     }
 	    
 
@@ -265,7 +276,7 @@ PrintNum(char * buf, unsigned long u, int base, int negFlag,
     {
 	int begin = 0;
 	int end;
-	if (ladjust) {
+	if (ladjust) { //if left_adjust, we only reverse the actual part of the number
 	    end = actualLength - 1;
 	} else {
 	    end = length -1;

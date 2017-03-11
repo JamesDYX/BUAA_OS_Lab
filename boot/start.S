@@ -28,11 +28,15 @@ LEAF(_start)           /*åœ¨asm.hä¸­å®šä¹‰çš„å¶å­å‡½æ•°ï¼Œå¶å­å‡½æ•°ä¸è°ƒç”
 	mtc0	t0, CP0_CONFIG
 
 	lui	sp,0x8040
+	jal main
+	nop
 	
 /*To do: 
   set up stack 
   you can reference the memory layout in the include/mmu.h
 */
-
+loop:
+	j loop
+	nop
 			
 END(_start)            /*ÔÚasm.hÖĞ¶¨ÒåµÄº¯Êı*/
