@@ -17,6 +17,5 @@ SECTIONS
 	.text : { *(.text) }
 	.data : { *(.data) }
 	.bss. : { *(.bss) }
-	. = 0x80400000;
 	end = .;
 }
