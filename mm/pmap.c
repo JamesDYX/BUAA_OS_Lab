@@ -4,8 +4,6 @@
 #include "env.h"
 #include "error.h"
 
-
-
 /* These variables are set by mips_detect_memory() */
 u_long maxpa;            /* Maximum physical address */
 u_long npage;            /* Amount of memory(in pages) */
@@ -27,6 +25,10 @@ void mips_detect_memory()
 {
     /* Step 1: Initialize basemem.
      * (When use real computer, CMOS tells us how many kilobytes there are). */
+	maxpa	= 67108864;
+	npage	= 1048576;
+	basemem = 67108864;
+	extmem	= 0;
 
     // Step 2: Calculate corresponding npage value.
 
@@ -175,6 +177,7 @@ page_init(void)
 {
     /* Step 1: Initialize page_free_list. */
     /* Hint: Use macro `LIST_INIT` defined in include/queue.h. */
+	LIST_INIT(page_free_list)
 
 
     /* Step 2: Align `freemem` up to multiple of BY2PG. */
