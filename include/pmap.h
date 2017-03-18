@@ -8,7 +8,19 @@
 
 
 LIST_HEAD(Page_list, Page);
+/*
+struct Page_list{
+	struct Page *lh_first;
+}
+*/
 typedef LIST_ENTRY(Page) Page_LIST_entry_t;
+/*
+typedef 
+struct {
+	struct Page *le_next;
+	struct Page **le_prev;
+} Page_LIST_entry_t;
+*/
 
 struct Page {
 	Page_LIST_entry_t pp_link;	/* free list link */
