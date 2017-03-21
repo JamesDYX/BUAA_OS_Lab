@@ -85,6 +85,7 @@ lp_Print(void (*output)(void *, char *, int),
 	}
 	longFlag = (*fmt)=='l';	
 	if ((*fmt)==0) break;
+
 	fmt = longFlag? fmt+1:fmt;
 
 	/* check format flag */
