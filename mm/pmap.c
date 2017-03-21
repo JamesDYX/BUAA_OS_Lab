@@ -25,9 +25,9 @@ void mips_detect_memory()
 {
     /* Step 1: Initialize basemem.
      * (When use real computer, CMOS tells us how many kilobytes there are). */
-	maxpa	= 67108864;
-	npage	= 16384;
-	basemem = 67108864;
+	maxpa	= 0x4000000;
+	npage	= 0x4000;
+	basemem = 0x4000000;
 	extmem	= 0;
 
     // Step 2: Calculate corresponding npage value.
@@ -180,7 +180,6 @@ page_init(void)
 	extern char end[];
 	struct Page* sp = (struct Page*)end;
 	LIST_INIT(&page_free_list);
-
     /* Step 2: Align `freemem` up to multiple of BY2PG. */
 	/* In fact ROUND(a,n) = ceiling(a/n)*n,
 	   For example, a=5,n=4,so a/n=1.25, and ceiling(1.25)=2,
@@ -197,7 +196,7 @@ page_init(void)
 		sp++;
 	}
     /* Step 4: Mark the other memory as free. */
-	while ((u_long)sp<0x84000000) {
+	while ((u_long)sp<0x84400000) {
 		sp->pp_ref = 0;
 		sp++;
 	}
