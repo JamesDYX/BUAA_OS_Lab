@@ -26,7 +26,7 @@ void mips_detect_memory()
     /* Step 1: Initialize basemem.
      * (When use real computer, CMOS tells us how many kilobytes there are). */
 	maxpa	= 67108864;
-	npage	= 1024;
+	npage	= 16384;
 	basemem = 67108864;
 	extmem	= 0;
 
@@ -177,6 +177,8 @@ page_init(void)
 {
     /* Step 1: Initialize page_free_list. */
     /* Hint: Use macro `LIST_INIT` defined in include/queue.h. */
+	extern char end[];
+	struct Page* sp = (struct Page*)end;
 	LIST_INIT(&page_free_list);
 
     /* Step 2: Align `freemem` up to multiple of BY2PG. */
@@ -187,15 +189,18 @@ page_init(void)
 	   ROUND(15,4) = 4*4 = 16;
 	   By Contrast, ROUNDDOWN(a,n) = floor(a/n)*n;
 	*/
-	ROUND(freemem,BY2PG);
-
-
+	freemem = ROUND(freemem,BY2PG);
     /* Step 3: Mark all memory blow `freemem` as used(set `pp_ref`
      * filed to 1) */
-	
-
-
+	while (((u_long)sp)<freemem) {
+		sp->pp_ref = 1;
+		sp++;
+	}
     /* Step 4: Mark the other memory as free. */
+	while ((u_long)sp<0x84000000) {
+		sp->pp_ref = 0;
+		sp++;
+	}
 }
 
 /*Overview:
