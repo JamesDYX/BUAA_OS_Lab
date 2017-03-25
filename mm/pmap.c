@@ -124,7 +124,8 @@ void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
     Pte *pgtable_entry;
 
     /* Step 1: Check if `size` is a multiple of BY2PG. */
-	if (size%BY2PG!=0) return;
+	//if (size%BY2PG!=0) return;
+	assert(size%BY2PG==0);
 
     /* Step 2: Map virtual address space to physical address. */
     /* Hint: Use `boot_pgdir_walk` to get the page table entry of virtual address `va`. */
@@ -293,12 +294,9 @@ pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
      * table.
      * When creating new page table, maybe out of memory. */
 	if (create==1 && (*pgdir_entryp & PTE_V)==0) {
-		if (page_alloc(&ppage)==-E_NO_MEM ) {
-			return -E_NO_MEM;
-		} else{
-			*pgdir_entryp = page2pa(ppage)|(PTE_V|PTE_R);
-			ppage->pp_ref++;
-		}
+		if (page_alloc(&ppage)==-E_NO_MEM ) return -E_NO_MEM;
+		*pgdir_entryp = page2pa(ppage)|(PTE_V|PTE_R);
+		ppage->pp_ref++;
 	}
 
     /* Step 3: Set the page table entry to `*ppte` as return value. */
