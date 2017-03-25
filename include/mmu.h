@@ -22,8 +22,8 @@
 #define PTE_ADDR(pte)	((u_long)(pte)&~0xFFF)
 
 // page number field of address
-#define PPN(va)		(((u_long)(va))>>12)
-#define VPN(va)		PPN(va)
+#define PPN(va)		(((u_long)(va))>>12) //物理页号
+#define VPN(va)		PPN(va)              //虚拟页号
 
 #define VA2PFN(va)		(((u_long)(va)) & 0xFFFFF000 ) // va 2 PFN for EntryLo0/1
 #define PTE2PT		1024
