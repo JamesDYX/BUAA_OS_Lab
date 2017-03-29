@@ -87,25 +87,26 @@ static void *alloc(u_int n, u_int align, int clear)
 static Pte *boot_pgdir_walk(Pde *pgdir, u_long va, int create)
 {
 
+	//pgdir_entryp:虚拟地址
+	//*pgdir_entryp:页目录项内容
+	//页目录项或者页表项的构成:20位物理页框号+12位标志位
     Pde *pgdir_entryp;
     Pte *pgtable, *pgtable_entry;
 
     /* Step 1: Get the corresponding page directory entry and page table. */
     /* Hint: Use KADDR and PTE_ADDR to get the page table from page directory
      * entry value. */
-	pgdir_entryp = pgdir+PDX(va);
-	//printf("boot_pgdir_walk: %x\n",pgdir_entryp);//0x804007f8
-	//printf("boot_pgdir_walk: %x\n",*pgdir_entryp);//0
+	pgdir_entryp = pgdir+PDX(va);//依然是一个虚拟地址
 
     /* Step 2: If the corresponding page table is not exist and parameter `create`
      * is set, create one. And set the correct permission bits for this new page
      * table. */
-	if (create && !(*pgdir_entryp & PTE_V)) {
+	if (create && !(*pgdir_entryp & PTE_V)) {//如果有效位是0且create被设置，那么创建一页
 		*pgdir_entryp = PADDR((Pte)alloc(BY2PG,BY2PG,1) | PTE_V);
 	}
 
     /* Step 3: Get the page table entry for `va`, and return it. */
-	pgtable = (Pte*)KADDR(PTE_ADDR(*pgdir_entryp));
+	pgtable = (Pte*)KADDR(PTE_ADDR(*pgdir_entryp));//PET_ADDR(pte)实际上只是将页表项的12位标志位抹掉
 	pgtable_entry = &pgtable[PTX(va)];
 	return pgtable_entry;
 }
@@ -114,12 +115,13 @@ static Pte *boot_pgdir_walk(Pde *pgdir, u_long va, int create)
  	Map [va, va+size) of virtual address space to physical [pa, pa+size) in the page
 	table rooted at pgdir.
 	Use permission bits `perm|PTE_V` for the entries.
- 	Use permission bits `perm` for the entries.
+	Use permission bits `perm` for the entries.
 
   Pre-Condition:
 	Size is a multiple of BY2PG.*/
 void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
 {
+	//将物理地址写入对应的页表项中
     int i, va_temp;
     Pte *pgtable_entry;
 
@@ -131,7 +133,7 @@ void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
     /* Hint: Use `boot_pgdir_walk` to get the page table entry of virtual address `va`. */
 	for (i = 0;i<size;i+=BY2PG) {
 		pgtable_entry = boot_pgdir_walk(pgdir,va+i,0);
-		*pgtable_entry = (pa+i | perm);
+		*pgtable_entry = (pa+i) | perm;
 	}
 
 }
@@ -239,7 +241,7 @@ page_alloc(struct Page **pp)
 
     /* Step 2: Initialize this page.
      * Hint: use `bzero`. */
-	bzero((void*)page2kva(ppage_temp),BY2PG);
+	bzero((void*)page2kva(ppage_temp),BY2PG);//清空的是对应的4k空间的那一页，而不是我们存储页信息的结构体
 	*pp = ppage_temp;
 	return 0;
 }
@@ -252,7 +254,7 @@ void
 page_free(struct Page *pp)
 {
     /* Step 1: If there's still virtual address refers to this page, do nothing. */
-	if (pp->pp_ref==1) return;
+	if (pp->pp_ref>=1) return;
     /* Step 2: If the `pp_ref` reaches to 0, mark this page as free and return. */
 	if (pp->pp_ref==0) {
 		LIST_INSERT_HEAD(&page_free_list,pp,pp_link);
@@ -261,7 +263,7 @@ page_free(struct Page *pp)
 
     /* If the value of `pp_ref` less than 0, some error must occurred before,
      * so PANIC !!! */
-	panic("cgh:pp->pp_ref is less than zero\n");
+	if (pp->pp_ref<0) panic("cgh:pp->pp_ref is less than zero\n");
 }
 
 /*Overview:
@@ -294,9 +296,9 @@ pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
      * table.
      * When creating new page table, maybe out of memory. */
 	if (create==1 && (*pgdir_entryp & PTE_V)==0) {
-		if (page_alloc(&ppage)==-E_NO_MEM ) return -E_NO_MEM;
-		*pgdir_entryp = page2pa(ppage)|(PTE_V|PTE_R);
-		ppage->pp_ref++;
+		if (page_alloc(&ppage)==-E_NO_MEM ) return -E_NO_MEM;//没有空间了，则返回失败信息
+		*pgdir_entryp = page2pa(ppage)|(PTE_V|PTE_R);//设置对应的标志位
+		ppage->pp_ref++;//让页引用变为1
 	}
 
     /* Step 3: Set the page table entry to `*ppte` as return value. */
