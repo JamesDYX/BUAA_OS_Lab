@@ -130,7 +130,7 @@ void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
     /* Hint: Use `boot_pgdir_walk` to get the page table entry of virtual address `va`. */
 	for (i = 0;i<size;i+=BY2PG) {
 		pgtable_entry = boot_pgdir_walk(pgdir,va+i,0);
-		*pgtable_entry = (pa+i | perm);
+		*pgtable_entry = (pa+i) | perm;
 	}
 
 }
@@ -167,7 +167,7 @@ void mips_vm_init()
 
     /* Step 3, Allocate proper size of physical memory for global array `envs`,
      * for process management. Then map the physical address to `UENVS`. */
-    envs = (struct Env *)alloc(NENV * sizeof(struct Env), BY2PG, 1);
+    envs = (struct Env *)alloc(NENV * sizeof(struct Env), BY2PG, 1);//sizeof(struct Env=216);NENV = 1024;
     n = ROUND(NENV * sizeof(struct Env), BY2PG);
     boot_map_segment(pgdir, UENVS, n, PADDR(envs), PTE_R);
 

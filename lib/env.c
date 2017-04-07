@@ -96,12 +96,13 @@ env_init(void)
 {
 	int i;
     /*Step 1: Initial env_free_list. */
-
-
+	LIST_INIT(&env_free_list);
     /*Step 2: Travel the elements in 'envs', init every element(mainly initial its status, mark it as free)
      * and inserts them into the env_free_list as reverse order. */
-
-
+	for (i=NENV-1;i>=0;i--) {
+		envs[i].env_status = ENV_FREE;
+		LIST_INSERT_HEAD(&env_free_list,&envs[i],env_link);
+	}
 }
 
 
@@ -182,23 +183,27 @@ env_alloc(struct Env **new, u_int parent_id)
 	struct Env *e;
     
     /*Step 1: Get a new Env from env_free_list*/
-
+	if (LIST_EMPTY(&env_free_list)) {
+		return -E_NO_FREE_ENV;
+	}
+	e = LIST_FIRST(&env_free_list);
     
     /*Step 2: Call certain function(has been implemented) to init kernel memory layout for this new Env.
      *The function mainly maps the kernel address to this new Env address. */
-
+	env_setup_vm(e);
 
     /*Step 3: Initialize every field of new Env with appropriate values*/
-
-
+	e->env_status = ENV_RUNNABLE;
+	e->env_parent_id = parent_id;
+	e->env_id = mkenvid(e);
     /*Step 4: focus on initializing env_tf structure, located at this new Env. 
      * especially the sp register,CPU status. */
     e->env_tf.cp0_status = 0x10001004;
-
-
+	e->env_tf.regs[28] = KERNEL_SP;
     /*Step 5: Remove the new Env from Env free list*/
-
-
+	LIST_REMOVE(e,env_link);
+	*new = e;
+	return 0;
 }
 
 /* Overview:
