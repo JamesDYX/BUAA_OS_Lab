@@ -269,6 +269,8 @@ page_free(struct Page *pp)
 /*Overview:
  	Given `pgdir`, a pointer to a page directory, pgdir_walk returns a pointer
  	to the page table entry (with permission PTE_R|PTE_V) for virtual address 'va'.
+	给定页目录地址，pgdir_walk函数返回一个对应于va的且有效位被置为PTE_R|PTE_V的指向
+	页表项的指针
 
   Pre-Condition:
 	The `pgdir` should be two-level page table structure.
@@ -311,6 +313,7 @@ pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
 /*Overview:
  	Map the physical page 'pp' at virtual address 'va'.
  	The permissions (the low 12 bits) of the page table entry should be set to 'perm|PTE_V'.
+	将物理页pp映射到虚拟地址va
 
   Post-Condition:
     Return 0 on success
@@ -544,6 +547,14 @@ page_check(void)
     page_free(pp1);
     page_free(pp2);
 
+	u_long* va = 0x12450;
+	u_long* pa;
+	page_insert(boot_pgdir,pp,va,PTE_R);
+	pa = va2pa(boot_pgdir,va);
+	printf("va: %x -> pa: %x\n",va,pa);
+	*va = 0x88888;
+	//printf("va value: %x\n",*KADDR(va2pa(va)));
+	printf("pa value: %x\n",*((u_long*)((u_long)pa+(u_long)ULIM)));
     printf("page_check() succeeded!\n");
 }
 
