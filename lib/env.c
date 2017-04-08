@@ -199,7 +199,7 @@ env_alloc(struct Env **new, u_int parent_id)
     /*Step 4: focus on initializing env_tf structure, located at this new Env. 
      * especially the sp register,CPU status. */
     e->env_tf.cp0_status = 0x10001004;
-	e->env_tf.regs[28] = KERNEL_SP;
+	//e->env_tf.regs[28] = SP;
     /*Step 5: Remove the new Env from Env free list*/
 	LIST_REMOVE(e,env_link);
 	*new = e;
@@ -230,15 +230,18 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 	u_long i;
 	int r;
 	u_long offset = va - ROUNDDOWN(va, BY2PG);
+	if (bin==NULL) return ~0;
 
 	/*Step 1: load all content of bin into memory. */
 	for (i = 0; i < bin_size; i += BY2PG) {
 		/* Hint: You should alloc a page and increase the reference count of it. */
+		page_alloc(&p);
+		p->pp_ref++;
+		bcopy(bin+i,page2kva(p),BY2PG);
 	}
 	/*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
     * i has the value of `bin_size` now. */
 	while (i < sgsize) {
-
 
 	}
 	return 0;
