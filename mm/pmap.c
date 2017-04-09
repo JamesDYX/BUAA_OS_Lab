@@ -552,8 +552,8 @@ page_check(void)
 	page_insert(boot_pgdir,pp,va,PTE_R);
 	pa = va2pa(boot_pgdir,va);
 	printf("va: %x -> pa: %x\n",va,pa);
-	*va = 0x88888;
-	//printf("va value: %x\n",*KADDR(va2pa(va)));
+	*((u_long*)((u_long)pa+(u_long)ULIM))= 0x88888;
+	//printf("va value: %x\n",*va);
 	printf("pa value: %x\n",*((u_long*)((u_long)pa+(u_long)ULIM)));
     printf("page_check() succeeded!\n");
 }
