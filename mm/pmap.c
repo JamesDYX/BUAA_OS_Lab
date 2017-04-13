@@ -102,7 +102,7 @@ static Pte *boot_pgdir_walk(Pde *pgdir, u_long va, int create)
      * is set, create one. And set the correct permission bits for this new page
      * table. */
 	if (create && !(*pgdir_entryp & PTE_V)) {//如果有效位是0且create被设置，那么创建一页
-		*pgdir_entryp = PADDR((Pte)alloc(BY2PG,BY2PG,1) | PTE_V);
+		*pgdir_entryp = PADDR((Pte)alloc(BY2PG,BY2PG,1)) | PTE_V;
 	}
 
     /* Step 3: Get the page table entry for `va`, and return it. */
@@ -127,13 +127,14 @@ void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
 
     /* Step 1: Check if `size` is a multiple of BY2PG. */
 	//if (size%BY2PG!=0) return;
-	assert(size%BY2PG==0);
+	size = ROUND(size,BY2PG);
+	//assert(size%BY2PG==0);
 
     /* Step 2: Map virtual address space to physical address. */
     /* Hint: Use `boot_pgdir_walk` to get the page table entry of virtual address `va`. */
 	for (i = 0;i<size;i+=BY2PG) {
-		pgtable_entry = boot_pgdir_walk(pgdir,va+i,0);
-		*pgtable_entry = (pa+i) | perm;
+		pgtable_entry = boot_pgdir_walk(pgdir,va+i,1);
+		*pgtable_entry = PTE_ADDR((pa+i)) | (perm|PTE_V);
 	}
 
 }
@@ -299,7 +300,7 @@ pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
      * When creating new page table, maybe out of memory. */
 	if (create==1 && (*pgdir_entryp & PTE_V)==0) {
 		if (page_alloc(&ppage)==-E_NO_MEM ) return -E_NO_MEM;//没有空间了，则返回失败信息
-		*pgdir_entryp = page2pa(ppage)|(PTE_V|PTE_R);//设置对应的标志位
+		*pgdir_entryp = page2pa(ppage)|(PTE_V|PTE_R);//设置对应的标志位，这里的写入只是写入了一个32位值
 		ppage->pp_ref++;//让页引用变为1
 	}
 
@@ -552,12 +553,12 @@ page_check(void)
 	page_insert(boot_pgdir,pp,va,PTE_R);
 	pa = va2pa(boot_pgdir,va);
 	printf("va: %x -> pa: %x\n",va,pa);
-	*((u_long*)((u_long)pa+(u_long)ULIM))= 0x88888;
-	//printf("va value: %x\n",*va);
-	printf("pa value: %x\n",*((u_long*)((u_long)pa+(u_long)ULIM)));
+	
+	/**va = 0x88888;
+	printf("va value: %x\n",*va);
+	printf("pa value: %x\n",*((u_long*)((u_long)pa+(u_long)ULIM)));*/
     printf("page_check() succeeded!\n");
 }
-
 void pageout(int va, int context)
 {
     u_long r;
