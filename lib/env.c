@@ -199,7 +199,7 @@ env_alloc(struct Env **new, u_int parent_id)
     /*Step 4: focus on initializing env_tf structure, located at this new Env. 
      * especially the sp register,CPU status. */
     e->env_tf.cp0_status = 0x10001004;
-	//e->env_tf.regs[28] = SP;
+	e->env_tf.regs[28] = USTACKTOP;
     /*Step 5: Remove the new Env from Env free list*/
 	LIST_REMOVE(e,env_link);
 	*new = e;
@@ -231,18 +231,31 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 	int r;
 	u_long offset = va - ROUNDDOWN(va, BY2PG);
 	if (bin==NULL) return ~0;
-
+	if (offset>0) {
+		page_alloc(&p);
+		p->pp_ref++;
+		bcopy(bin,page2kva(p)+offset,BY2PG-offset);
+		i=BY2PG-offset;
+	}
 	/*Step 1: load all content of bin into memory. */
-	for (i = 0; i < bin_size; i += BY2PG) {
+	for (; i+BY2PG <= bin_size; i += BY2PG) {
 		/* Hint: You should alloc a page and increase the reference count of it. */
 		page_alloc(&p);
 		p->pp_ref++;
 		bcopy(bin+i,page2kva(p),BY2PG);
 	}
+	if (bin_size>i) {
+		page_alloc(&p);
+		p->pp_ref++;
+		bcopy(bin+i,page2kva(p),bin_size-i);
+		i = i+BY2PG;
+	}
 	/*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
     * i has the value of `bin_size` now. */
 	while (i < sgsize) {
-
+		page_alloc(&p);
+		p->pp_ref++;
+		bzero(page2kva(p),BY2PG);
 	}
 	return 0;
 }
@@ -273,8 +286,7 @@ load_icode(struct Env *e, u_char *binary, u_int size)
     u_long perm;
     
     /*Step 1: alloc a page. */
-
-
+	page_alloc(&p);
     /*Step 2: Use appropriate perm to set initial stack for new Env. */
     /*Hint: The user-stack should be writable? */
 
