@@ -190,7 +190,8 @@ env_alloc(struct Env **new, u_int parent_id)
     
     /*Step 2: Call certain function(has been implemented) to init kernel memory layout for this new Env.
      *The function mainly maps the kernel address to this new Env address. */
-	env_setup_vm(e);
+	if ((r=env_setup_vm(e))<0) 
+		return r;
 
     /*Step 3: Initialize every field of new Env with appropriate values*/
 	e->env_status = ENV_RUNNABLE;
@@ -199,7 +200,7 @@ env_alloc(struct Env **new, u_int parent_id)
     /*Step 4: focus on initializing env_tf structure, located at this new Env. 
      * especially the sp register,CPU status. */
     e->env_tf.cp0_status = 0x10001004;
-	e->env_tf.regs[28] = USTACKTOP;
+	e->env_tf.regs[29] = USTACKTOP;
     /*Step 5: Remove the new Env from Env free list*/
 	LIST_REMOVE(e,env_link);
 	*new = e;
@@ -229,33 +230,80 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 	struct Page *p = NULL;
 	u_long i;
 	int r;
+	Pde* pgdir = env->env_pgdir;
+	u_long tempva = 0,remain,outsize,pagenum0;
+	void *tempstart;
 	u_long offset = va - ROUNDDOWN(va, BY2PG);
-	if (bin==NULL) return ~0;
-	if (offset>0) {
+	u_long pagenum = (ROUND(va+bin_size,BY2PG)-ROUNDDOWN(va,BY2PG))>>PGSHIFT;
+	if (pagenum==1) {
+		if ((r=page_alloc(&p))<0)
+			return r;
+		if ((r=page_insert(pgdir,p,va,PTE_R)<0)) 
+			return r;
+		bcopy((void*)bin,(void*)(offset+page2kva(p)),bin_size);
+	} else {
+		if ((r=page_alloc(&p))<0)
+			return r;
+		if ((r=page_insert(pgdir,p,va,PTE_R)<0)) 
+			return r;
+		bcopy((void*)bin,(void*)(offset+page2kva(p)),ROUND(va,BY2PG)-va);
+		tempva=ROUND(va,BY2PG);
+		tempstart=(void*)bin+ROUND(va,BY2PG)-va;
+		for (i=1;i<pagenum-1;i++) {
+			if ((r=page_alloc(&p))<0)
+				return r;
+			if ((r=page_insert(pgdir,p,va,PTE_R)<0)) 
+				return r;
+			bcopy(tempstart,(void*)page2kva(p),BY2PG);
+			tempva+=BY2PG;
+			tempstart+=BY2PG;
+		}
+		if ((r=page_alloc(&p))<0)
+			return r;
+		if ((r=page_insert(pgdir,p,va,PTE_R)<0)) 
+			return r;
+		bcopy(tempstart,(void*)page2kva(p),(u_long)bin-tempva+bin_size);
+	}
+	/*if (offset>0) {
 		page_alloc(&p);
-		p->pp_ref++;
+		page_insert(pgdir,p,va,PTE_R);
 		bcopy(bin,page2kva(p)+offset,BY2PG-offset);
 		i=BY2PG-offset;
-	}
+	}*/
 	/*Step 1: load all content of bin into memory. */
-	for (; i+BY2PG <= bin_size; i += BY2PG) {
+	//for (; i+BY2PG <= bin_size; i += BY2PG) {
 		/* Hint: You should alloc a page and increase the reference count of it. */
-		page_alloc(&p);
-		p->pp_ref++;
+		/*page_alloc(&p);
+		page_insert(pgdir,p,va,PTE_R);
 		bcopy(bin+i,page2kva(p),BY2PG);
 	}
 	if (bin_size>i) {
 		page_alloc(&p);
-		p->pp_ref++;
+		page_insert(pgdir,p,va,PTE_R);
 		bcopy(bin+i,page2kva(p),bin_size-i);
 		i = i+BY2PG;
-	}
+	}*/
 	/*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
     * i has the value of `bin_size` now. */
-	while (i < sgsize) {
-		page_alloc(&p);
-		p->pp_ref++;
-		bzero(page2kva(p),BY2PG);
+	if (sgsize>bin_size) {
+		outsize = sgsize-bin_size;
+		if(pagenum!=1)
+			remain=BY2PG-((u_long)bin+bin_size-tempva);
+		else
+			remain=BY2PG-offset-bin_size;
+		if (outsize>remain) {
+			pagenum0=ROUND(outsize-remain,BY2PG)>>PGSHIFT;
+			if(pagenum==1)
+				tempva=ROUND(va+bin_size,BY2PG);
+			else
+				tempva+=BY2PG;
+			for (i=0;i<pagenum0;i++,tempva+=BY2PG) {
+				if ((r=page_alloc(&p))<0)
+					return r;
+				if ((r=page_insert(pgdir,p,va,PTE_R)<0)) 
+					return r;
+			}
+		}
 	}
 	return 0;
 }
@@ -283,20 +331,19 @@ load_icode(struct Env *e, u_char *binary, u_int size)
 	struct Page *p = NULL;
 	u_long entry_point;
 	u_long r;
-    u_long perm;
-    
+    u_long perm = PTE_V|PTE_R;
     /*Step 1: alloc a page. */
-	page_alloc(&p);
+	if ((r=page_alloc(&p))==0) {
+		if ((r=page_insert(e->env_pgdir,p,USTACKTOP-BY2PG,perm))==0) {
     /*Step 2: Use appropriate perm to set initial stack for new Env. */
     /*Hint: The user-stack should be writable? */
-
-
     /*Step 3:load the binary by using elf loader. */
-
-
+			load_elf(binary,size,&entry_point,(void*)e,load_icode_mapper);
     /***Your Question Here***/
     /*Step 4:Set CPU's PC register as appropriate value. */
-	e->env_tf.pc = entry_point;
+			e->env_tf.pc = entry_point;
+		}
+	}
 }
 
 /* Overview:
@@ -312,11 +359,9 @@ env_create(u_char *binary, int size)
 {
 	struct Env *e;
     /*Step 1: Use env_alloc to alloc a new env. */
-
-
+	env_alloc(&e,0);
     /*Step 2: Use load_icode() to load the named elf binary. */
-
-
+	load_icode(e,binary,size);
 }
 
 /* Overview:
@@ -401,18 +446,19 @@ env_run(struct Env *e)
 	/*Step 1: save register state of curenv. */
     /* Hint: if there is a environment running,you should do
     *  context switch.You can imitate env_destroy() 's behaviors.*/
-
-
+	if (curenv!=NULL && curenv!=e) {
+		bcopy((void*)(&(curenv->env_tf)),(void *)(TIMESTACK - sizeof(struct Trapframe)),sizeof(struct Trapframe));
+		curenv->env_tf.pc = curenv->env_tf.cp0_epc;
+	}
     /*Step 2: Set 'curenv' to the new environment. */
-
-
+	curenv = e;
+	curenv->env_status = ENV_RUNNABLE;
     /*Step 3: Use lcontext() to switch to its address space. */
-
-
+	lcontext(e->env_pgdir);
     /*Step 4: Use env_pop_tf() to restore the environment's
      * environment   registers and drop into user mode in the
      * the   environment.
      */
     /* Hint: You should use GET_ENV_ASID there.Think why? */
-
+	env_pop_tf(&(e->env_tf),GET_ENV_ASID(e->env_id));
 }

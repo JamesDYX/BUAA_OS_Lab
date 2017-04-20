@@ -174,7 +174,6 @@ void mips_vm_init()
     envs = (struct Env *)alloc(NENV * sizeof(struct Env), BY2PG, 1);
     n = ROUND(NENV * sizeof(struct Env), BY2PG);
     boot_map_segment(pgdir, UENVS, n, PADDR(envs), PTE_R);
-
     printf("pmap.c:\t mips vm init success\n");
 }
 
@@ -212,6 +211,16 @@ page_init(void)
 		pages[i].pp_ref=0;
 		LIST_INSERT_HEAD(&page_free_list,&pages[i],pp_link);
 	}
+}
+void count(void) {
+	int i=0;
+	struct Page*p;
+	p = LIST_FIRST(&page_free_list);
+	while (p!=NULL) {
+		i++;
+		p = LIST_NEXT(p,pp_link);
+	}
+	printf("%d pages are free\n",i);
 }
 
 /*Overview:
