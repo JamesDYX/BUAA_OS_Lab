@@ -5,15 +5,16 @@ SECTIONS
 {
   . = 0x80000080;
   .except_vec3 : {
-	  *(.text.exc_vec3)
+	*(.text.exc_vec3)
   }
   . = 0x80010000;
   .text : {
-	  *(.text)
-		}
+    *(.text)
+        }
+
   .data : {
-	  *(.data)
-		}
+	*(.data)
+	}
 
   .bss  : {
 	*(.bss)
@@ -22,6 +23,8 @@ SECTIONS
   .sdata : {
   	*(.sdata)
   }
+   
    . = 0x80400000;
+
    end = . ;
 }

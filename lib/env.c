@@ -235,7 +235,7 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 	void *tempstart;
 	u_long offset = va - ROUNDDOWN(va, BY2PG);
 	u_long pagenum = (ROUND(va+bin_size,BY2PG)-ROUNDDOWN(va,BY2PG))>>PGSHIFT;
-	if (pagenum==1) {
+	/*if (pagenum==1) {
 		if ((r=page_alloc(&p))<0)
 			return r;
 		if ((r=page_insert(pgdir,p,va,PTE_R)<0)) 
@@ -263,17 +263,17 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 		if ((r=page_insert(pgdir,p,va,PTE_R)<0)) 
 			return r;
 		bcopy(tempstart,(void*)page2kva(p),(u_long)bin-tempva+bin_size);
-	}
-	/*if (offset>0) {
+	}*/
+	if (offset>0) {
 		page_alloc(&p);
 		page_insert(pgdir,p,va,PTE_R);
 		bcopy(bin,page2kva(p)+offset,BY2PG-offset);
 		i=BY2PG-offset;
-	}*/
+	}
 	/*Step 1: load all content of bin into memory. */
-	//for (; i+BY2PG <= bin_size; i += BY2PG) {
+	for (; i+BY2PG <= bin_size; i += BY2PG) {
 		/* Hint: You should alloc a page and increase the reference count of it. */
-		/*page_alloc(&p);
+		page_alloc(&p);
 		page_insert(pgdir,p,va,PTE_R);
 		bcopy(bin+i,page2kva(p),BY2PG);
 	}
@@ -282,10 +282,16 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 		page_insert(pgdir,p,va,PTE_R);
 		bcopy(bin+i,page2kva(p),bin_size-i);
 		i = i+BY2PG;
-	}*/
+	}
 	/*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
     * i has the value of `bin_size` now. */
-	if (sgsize>bin_size) {
+	while (i<sgsize) {
+		page_alloc(&p);
+		page_insert(pgdir,p,va,PTE_R);
+		bcopy(bin+i,page2kva(p),BY2PG);
+		i = i+BY2PG;
+	}
+	/*if (sgsize>bin_size) {
 		outsize = sgsize-bin_size;
 		if(pagenum!=1)
 			remain=BY2PG-((u_long)bin+bin_size-tempva);
@@ -304,7 +310,7 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 					return r;
 			}
 		}
-	}
+	}*/
 	return 0;
 }
 /* Overview:
@@ -447,14 +453,15 @@ env_run(struct Env *e)
     /* Hint: if there is a environment running,you should do
     *  context switch.You can imitate env_destroy() 's behaviors.*/
 	if (curenv!=NULL && curenv!=e) {
-		bcopy((void*)(&(curenv->env_tf)),(void *)(TIMESTACK - sizeof(struct Trapframe)),sizeof(struct Trapframe));
+		//bcopy((void*)(&(curenv->env_tf)),(void *)(TIMESTACK - sizeof(struct Trapframe)),sizeof(struct Trapframe));
+		curenv->env_tf=*((struct Trapframe *)(TIMESTACK-sizeof(struct Trapframe)));
 		curenv->env_tf.pc = curenv->env_tf.cp0_epc;
 	}
     /*Step 2: Set 'curenv' to the new environment. */
 	curenv = e;
 	curenv->env_status = ENV_RUNNABLE;
     /*Step 3: Use lcontext() to switch to its address space. */
-	lcontext(e->env_pgdir);
+	lcontext((u_int)(e->env_pgdir));
     /*Step 4: Use env_pop_tf() to restore the environment's
      * environment   registers and drop into user mode in the
      * the   environment.

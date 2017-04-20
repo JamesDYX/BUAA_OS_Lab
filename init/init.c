@@ -21,7 +21,6 @@ void mips_init()
 	ENV_CREATE(user_B);
 	/*you may want to create process by MACRO, please read env.h file, in which you will find it. this MACRO is very
 	 * interesting, have fun please*/
-	printf("hhel\n");
 	trap_init();
 	kclock_init();
 	panic("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
