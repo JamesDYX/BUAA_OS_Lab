@@ -226,38 +226,53 @@ env_alloc(struct Env **new, u_int parent_id)
 static int load_icode_mapper(u_long va, u_int32_t sgsize,
 							 u_char *bin, u_int32_t bin_size, void *user_data)
 {
+	/*
+	 |ofst|                                                        
+	 |-----------|---BY2PG---|---......----|---BY2PG---|-----------|00000000000|000....000|00000000000|
+	      ^                                                ^                               
+	      va                                          va+bin_size
+	 */
 	struct Env *env = (struct Env *)user_data;
 	struct Page *p = NULL;
-	u_long i;
+	u_long i = 0;
 	int r;
 	Pde* pgdir = env->env_pgdir;
 	u_long offset = va - ROUNDDOWN(va, BY2PG);
 	if (offset>0) {
 		page_alloc(&p);
-		page_insert(pgdir,p,va,PTE_R);
+		page_insert(pgdir,p,ROUNDDOWN(va,BY2PG),PTE_R);
 		bcopy(bin,page2kva(p)+offset,BY2PG-offset);
 		i=BY2PG-offset;
 	}
 	/*Step 1: load all content of bin into memory. */
+	u_long tempVa = ROUND(va,BY2PG);
 	for (; i+BY2PG <= bin_size; i += BY2PG) {
 		/* Hint: You should alloc a page and increase the reference count of it. */
 		page_alloc(&p);
-		page_insert(pgdir,p,va,PTE_R);
+		page_insert(pgdir,p,tempVa,PTE_R);
 		bcopy(bin+i,page2kva(p),BY2PG);
+		tempVa+=BY2PG;
 	}
 	if (bin_size>i) {
 		page_alloc(&p);
-		page_insert(pgdir,p,va,PTE_R);
+		page_insert(pgdir,p,tempVa,PTE_R);
 		bcopy(bin+i,page2kva(p),bin_size-i);
 		i = i+BY2PG;
+		tempVa+=BY2PG;
 	}
 	/*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
     * i has the value of `bin_size` now. */
-	while (i<sgsize) {
+	while (i+BY2PG<sgsize) {
 		page_alloc(&p);
-		page_insert(pgdir,p,va,PTE_R);
-		bcopy(bin+i,page2kva(p),BY2PG);
+		page_insert(pgdir,p,tempVa,PTE_R);
+		bzero(page2kva(p),BY2PG);//fill into zeros
 		i = i+BY2PG;
+		tempVa+=BY2PG;
+	}
+	if (sgsize>i) {
+		page_alloc(&p);
+		page_insert(pgdir,p,tempVa,PTE_R);
+		bzero(page2kva(p),sgsize-i);
 	}
 	return 0;
 }
@@ -402,7 +417,7 @@ env_run(struct Env *e)
     /* Hint: if there is a environment running,you should do
     *  context switch.You can imitate env_destroy() 's behaviors.*/
 	if (curenv!=NULL && curenv!=e) {
-		//bcopy((void*)(&(curenv->env_tf)),(void *)(TIMESTACK - sizeof(struct Trapframe)),sizeof(struct Trapframe));
+		//bcopy((void *)(TIMESTACK - sizeof(struct Trapframe)),(void*)(&(curenv->env_tf)),sizeof(struct Trapframe));
 		curenv->env_tf=*((struct Trapframe *)(TIMESTACK-sizeof(struct Trapframe)));
 		curenv->env_tf.pc = curenv->env_tf.cp0_epc;
 	}
