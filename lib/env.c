@@ -302,8 +302,8 @@ load_icode(struct Env *e, u_char *binary, u_int size)
 	u_long r;
     u_long perm = PTE_V|PTE_R;
     /*Step 1: alloc a page. */
-	if ((r=page_alloc(&p))==0) {
-		if ((r=page_insert(e->env_pgdir,p,USTACKTOP-BY2PG,perm))==0) {
+	if ( (r=page_alloc(&p))==0 ) {
+		if ( (r=page_insert(e->env_pgdir,p,USTACKTOP-BY2PG,perm))==0 ) {
     /*Step 2: Use appropriate perm to set initial stack for new Env. */
     /*Hint: The user-stack should be writable? */
     /*Step 3:load the binary by using elf loader. */
@@ -425,7 +425,7 @@ env_run(struct Env *e)
 	curenv = e;
 	curenv->env_status = ENV_RUNNABLE;
     /*Step 3: Use lcontext() to switch to its address space. */
-	lcontext((u_int)(e->env_pgdir));
+	lcontext(e->env_pgdir);
     /*Step 4: Use env_pop_tf() to restore the environment's
      * environment   registers and drop into user mode in the
      * the   environment.

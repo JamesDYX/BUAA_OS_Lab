@@ -344,7 +344,7 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
 
     if (pgtable_entry != 0 && (*pgtable_entry & PTE_V) != 0) {
         if (pa2page(*pgtable_entry) != pp) {
-            page_remove(pgdir, va);
+            page_remove(pgdir, va);//如果va对应的地方已经有一页了,就将该页移除
         } else	{
             tlb_invalidate(pgdir, va);
             *pgtable_entry = (page2pa(pp) | PERM);
@@ -425,7 +425,7 @@ page_remove(Pde *pgdir, u_long va)
     /* Step 2: Decrease `pp_ref` and decide if it's necessary to free this page. */
 
     /* Hint: When there's no virtual address mapped to this page, release it. */
-    ppage->pp_ref--;
+    ppage->pp_ref--;//只是将绑定解出,只有当pp_ref=0的时候才将该页放入page_free_list
     if (ppage->pp_ref == 0) {
         page_free(ppage);
     }
