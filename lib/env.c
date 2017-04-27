@@ -234,46 +234,46 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 	 */
 	struct Env *env = (struct Env *)user_data;
 	struct Page *p = NULL;
-	u_long i = 0;
+	u_long i;
 	int r;
 	Pde* pgdir = env->env_pgdir;
 	u_long offset = va - ROUNDDOWN(va, BY2PG);
-	if (offset>0) {
-		page_alloc(&p);
-		page_insert(pgdir,p,ROUNDDOWN(va,BY2PG),PTE_R);
-		bcopy(bin,page2kva(p)+offset,BY2PG-offset);
-		i=BY2PG-offset;
-	}
-	/*Step 1: load all content of bin into memory. */
-	u_long tempVa = ROUND(va,BY2PG);
-	for (; i+BY2PG <= bin_size; i += BY2PG) {
-		/* Hint: You should alloc a page and increase the reference count of it. */
-		page_alloc(&p);
-		page_insert(pgdir,p,tempVa,PTE_R);
-		bcopy(bin+i,page2kva(p),BY2PG);
-		tempVa+=BY2PG;
-	}
-	if (bin_size>i) {
-		page_alloc(&p);
-		page_insert(pgdir,p,tempVa,PTE_R);
-		bcopy(bin+i,page2kva(p),bin_size-i);
-		i = i+BY2PG;
-		tempVa+=BY2PG;
-	}
-	/*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
-    * i has the value of `bin_size` now. */
-	while (i+BY2PG<sgsize) {
-		page_alloc(&p);
-		page_insert(pgdir,p,tempVa,PTE_R);
-		bzero(page2kva(p),BY2PG);//fill into zeros
-		i = i+BY2PG;
-		tempVa+=BY2PG;
-	}
-	if (sgsize>i) {
-		page_alloc(&p);
-		page_insert(pgdir,p,tempVa,PTE_R);
-		bzero(page2kva(p),sgsize-i);
-	}
+		if (offset>0) {
+			page_alloc(&p);
+			page_insert(pgdir,p,ROUNDDOWN(va,BY2PG),PTE_R);
+			bcopy(bin,page2kva(p)+offset,BY2PG-offset);
+			i=BY2PG-offset;
+		}
+		/*Step 1: load all content of bin into memory. */
+		u_long tempVa = ROUND(va,BY2PG);
+		for (; i+BY2PG <= bin_size; i += BY2PG) {
+			/* Hint: You should alloc a page and increase the reference count of it. */
+			page_alloc(&p);
+			page_insert(pgdir,p,tempVa,PTE_R);
+			bcopy(bin+i,page2kva(p),BY2PG);
+			tempVa+=BY2PG;
+		}
+		if (bin_size>i) {
+			page_alloc(&p);
+			page_insert(pgdir,p,tempVa,PTE_R);
+			bcopy(bin+i,page2kva(p),bin_size-i);
+			i = i+BY2PG;
+			tempVa+=BY2PG;
+		}
+		/*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
+		 * i has the value of `bin_size` now. */
+		while (i+BY2PG<sgsize) {
+			page_alloc(&p);
+			page_insert(pgdir,p,tempVa,PTE_R);
+			bzero(page2kva(p),BY2PG);//fill into zeros
+			i = i+BY2PG;
+			tempVa+=BY2PG;
+		}
+		if (sgsize>i) {
+			page_alloc(&p);
+			page_insert(pgdir,p,tempVa,PTE_R);
+			bzero(page2kva(p),sgsize-i);
+		}
 	return 0;
 }
 /* Overview:
@@ -418,7 +418,7 @@ env_run(struct Env *e)
     *  context switch.You can imitate env_destroy() 's behaviors.*/
 	if (curenv!=NULL && curenv!=e) {
 		//bcopy((void *)(TIMESTACK - sizeof(struct Trapframe)),(void*)(&(curenv->env_tf)),sizeof(struct Trapframe));
-		curenv->env_tf=*((struct Trapframe *)(TIMESTACK-sizeof(struct Trapframe)));
+		curenv->env_tf = *((struct Trapframe *)(TIMESTACK-sizeof(struct Trapframe)));
 		curenv->env_tf.pc = curenv->env_tf.cp0_epc;
 	}
     /*Step 2: Set 'curenv' to the new environment. */
