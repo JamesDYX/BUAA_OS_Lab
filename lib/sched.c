@@ -15,14 +15,13 @@ void sched_yield(void)
 {
 	static int count = 0;
 	int i;
-	for(;count<NENV;){
+	while (1){
 		if (envs[count].env_status==ENV_RUNNABLE) {
 			i = count;
-			count = (count+1)%NENV;
 			env_run(envs+i);
-		} else {
-			count = (count+1)%NENV;
+			break;
 		}
+		count = (count+1)%NENV;
 	}
 
 }

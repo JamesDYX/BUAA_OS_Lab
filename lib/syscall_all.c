@@ -63,6 +63,7 @@ u_int sys_getenvid(void)
  */
 void sys_yield(void)
 {
+	sched_yield();
 }
 
 /* Overview:
@@ -109,10 +110,12 @@ int sys_set_pgfault_handler(int sysno, u_int envid, u_int func, u_int xstacktop)
 {
 	// Your code here.
 	struct Env *env;
-	int ret;
+	int ret = 0;
+	ret = envid2env(envid,&env,0);
+	env->env_xstacktop = xstacktop;
+	env->env_pgfault_handler = func;
+	return ret;
 
-
-	return 0;
 	//	panic("sys_set_pgfault_handler not implemented");
 }
 
@@ -140,7 +143,12 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	struct Page *ppage;
 	int ret;
 	ret = 0;
-
+	assert(va%BY2PG==0);
+	if ((perm & PTE_V)==0 || (perm & PTE_COW)!=0 || va>=UTOP) return -E_INVAL;
+	if ((ret = envid2env(envid,&env,1))!=0) return ret;
+	if ((ret = page_alloc(&ppage))!=0) return ret;
+	if ((ret = page_insert(env->env_pgdir,ppage,va,perm))!=0) return ret;
+	return ret;
 }
 
 /* Overview:
@@ -170,9 +178,13 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 	ret = 0;
 	round_srcva = ROUNDDOWN(srcva, BY2PG);
 	round_dstva = ROUNDDOWN(dstva, BY2PG);
-
+	if ((perm & PTE_COW)!=0 || srcva>=UTOP || dstva>=UTOP || (perm & PTE_V) == 0) return -E_INVAL;
+	if ((ret = envid2env(srcid,&srcenv,0))!=0) return ret;
+	if ((ret = envid2env(dstid,&dstenv,0))!=0) return ret;
+	pgdir_walk(srcenv->env_pgdir,srcva,0,&ppte);
+	ppage = page_lookup(srcenv->env_pgdir,srcva,&ppte);
+	if ((ret = page_insert(dstenv->env_pgdir,ppage,round_dstva,perm))!=0) return ret;
     //your code here
-
 	return ret;
 }
 
@@ -212,8 +224,12 @@ int sys_env_alloc(void)
 	// Your code here.
 	int r;
 	struct Env *e;
-
-
+	if ((r = env_alloc(&e,curenv->env_id))!=0) return r;
+	bcopy(KERNEL_SP-sizeof(struct Trapframe),&e->env_tf,sizeof(struct Trapframe));
+	e->env_status = ENV_NOT_RUNNABLE;
+	e->env_pgfault_handler = 0;
+	e->env_tf.pc = e->env_tf.cp0_epc;
+	e->env_tf.regs[2] = 0;
 	return e->env_id;
 	//	panic("sys_env_alloc not implemented");
 }
@@ -288,6 +304,13 @@ void sys_panic(int sysno, char *msg)
  */
 void sys_ipc_recv(int sysno, u_int dstva)
 {
+	if (dstva>=UTOP || ROUNDDOWN(dstva,BY2PG) != dstva) {
+		return -E_INVAL;
+	}
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_ipc_recving = 1;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sys_yield();
 }
 
 /* Overview:
