@@ -116,8 +116,7 @@ int sys_set_pgfault_handler(int sysno, u_int envid, u_int func, u_int xstacktop)
 	if ((ret = envid2env(envid,&env,0))!=0) return ret;
 	env->env_xstacktop = xstacktop;
 	env->env_pgfault_handler = func;
-	return ret;
-
+	return 0;
 	//	panic("sys_set_pgfault_handler not implemented");
 }
 
@@ -146,10 +145,9 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	int ret;
 	ret = 0;
 	assert(va%BY2PG==0);
-	if ((perm & PTE_V)==0 || (perm & PTE_COW)!=0 || va>=UTOP) return -E_INVAL;
+	if ((perm & PTE_COW)==PTE_COW || va>=UTOP) return -E_INVAL;
 	if ((ret = envid2env(envid,&env,0))!=0) return ret;
 	if ((ret = page_alloc(&ppage))!=0) return ret;
-	//page_remove(env->env_pgdir,va);
 	if ((ret = page_insert(env->env_pgdir,ppage,va,perm))!=0) return ret;
 	ret = 0;
 	return ret;
@@ -182,10 +180,11 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 	ret = 0;
 	round_srcva = ROUNDDOWN(srcva, BY2PG);
 	round_dstva = ROUNDDOWN(dstva, BY2PG);
-	if ((perm & PTE_COW)!=0 || srcva>=UTOP || dstva>=UTOP) return -E_INVAL;
+	if ((perm & PTE_COW)!=0 || dstva>=UTOP) return -E_INVAL;
 	if ((ret = envid2env(srcid,&srcenv,0))!=0) return ret;
 	if ((ret = envid2env(dstid,&dstenv,0))!=0) return ret;
-	ppage = page_lookup(srcenv->env_pgdir,srcva,&ppte);//获取srcva映射的page
+	ppage = pa2page(va2pa(srcenv->env_pgdir,srcva));
+	//ppage = page_lookup(srcenv->env_pgdir,srcva,&ppte);//获取srcva映射的page
 	pgdir_walk(srcenv->env_pgdir,srcva,0,&ppte);//获取srcva对应的页表项
 	if (ppte!=NULL && ((*ppte)&PTE_R==0) && (perm&PTE_R!=0)) return -E_INVAL;//企图从不可写映射到可写,返回错误
 	if ((ret = page_insert(dstenv->env_pgdir,ppage,dstva,perm))!=0) return ret;
@@ -232,8 +231,8 @@ int sys_env_alloc(void)
 	struct Env *e;
 	Pte* ppte;
 	//以curenv->env_id作为父进程的id来创建一个子进程
-	if ((r = env_alloc(&e,curenv->env_id))!=0) return r;
 	bcopy((void*)KERNEL_SP-sizeof(struct Trapframe),&(curenv->env_tf),sizeof(struct Trapframe));
+	if ((r = env_alloc(&e,curenv->env_id))!=0) return r;
 	bcopy(&(curenv->env_tf),&(e->env_tf),sizeof(struct Trapframe));
 	u_long i;
 	for (i = UTEXT;i<UTOP-2*BY2PG;i=i+BY2PG) {
@@ -273,7 +272,11 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	// Your code here.
 	struct Env *env;
 	int ret;
-
+	if(ret=(envid2env(envid,&env,0))) return ret;
+	if((status!=ENV_FREE)&&(status!=ENV_NOT_RUNNABLE)&&(status!=ENV_RUNNABLE)) {
+		return -E_INVAL;
+	}
+	env->env_status = status;
 	return 0;
 	//	panic("sys_env_set_status not implemented");
 }
@@ -292,6 +295,12 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
  */
 int sys_set_trapframe(int sysno, u_int envid, struct Trapframe *tf)
 {
+	struct Env *env;
+	int ret;
+	if(ret=envid2env(envid,&env,0)) {
+		return ret;
+	}
+	env->env_tf=*tf;
 
 	return 0;
 }
@@ -364,11 +373,11 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	e->env_ipc_recving=0;
 	e->env_ipc_from=curenv->env_id;
 	e->env_ipc_value=value;
-	e->env_status=ENV_RUNNABLE;
 	if (srcva!=0) {
 		if(r=sys_mem_map(sysno,curenv->env_id,srcva,envid,e->env_ipc_dstva,perm)) return r;
 		e->env_ipc_perm = perm;
 	}
+	e->env_status=ENV_RUNNABLE;
 	return 0;
 }
 

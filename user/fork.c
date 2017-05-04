@@ -85,12 +85,12 @@ pgfault(u_int va)
 	//	writef("fork.c:pgfault():\t va:%x\n",va);
     
     //map the new page at a temporary place
-	tmp=USTACKTOP;
+	tmp=UXSTACKTOP-2*BY2PG;
 	va = ROUNDDOWN(va,BY2PG);
-	if (((*vpt)[VPN(va)] & PTE_COW)!=0) {
+	if (!((*vpt)[VPN(va)] & PTE_COW)) {
 		user_panic("no COW\n");
 	}
-	if (syscall_mem_alloc(0,tmp,PTE_V|PTE_R)!=0) {
+	if (syscall_mem_alloc(0,tmp,PTE_V|PTE_R)) {
 		user_panic("syscall_mem_alloc error!\n");
 	}
 	//copy the content

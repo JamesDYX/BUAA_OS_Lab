@@ -370,9 +370,9 @@ env_create(u_char *binary, int size)
 {
 	struct Env *e;
     /*Step 1: Use env_alloc to alloc a new env. */
-	env_alloc(&e,0);
+	if (env_alloc(&e,0)==0) 
     /*Step 2: Use load_icode() to load the named elf binary. */
-	load_icode(e,binary,size);
+		load_icode(e,binary,size);
 }
 
 /* Overview:
@@ -466,11 +466,11 @@ env_run(struct Env *e)
 	curenv = e;
 	//curenv->env_status = ENV_RUNNABLE;
     /*Step 3: Use lcontext() to switch to its address space. */
-	lcontext((u_int)(e->env_pgdir));
+	lcontext((u_int)(curenv->env_pgdir));
     /*Step 4: Use env_pop_tf() to restore the environment's
      * environment   registers and drop into user mode in the
      * the   environment.
      */
     /* Hint: You should use GET_ENV_ASID there.Think why? */
-	env_pop_tf(&(e->env_tf),GET_ENV_ASID(e->env_id));
+	env_pop_tf(&(curenv->env_tf),GET_ENV_ASID(curenv->env_id));
 }
