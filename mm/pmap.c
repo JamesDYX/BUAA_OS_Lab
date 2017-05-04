@@ -244,6 +244,7 @@ page_alloc(struct Page **pp)
 
     /* Step 1: Get a page from free memory. If fails, return the error code.*/
 	if (LIST_EMPTY(&page_free_list)) {
+		*pp = 0;
 		return -E_NO_MEM;
 	}
 	ppage_temp = LIST_FIRST(&page_free_list);
@@ -307,16 +308,22 @@ pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
      * is set, create one. And set the correct permission bits for this new page
      * table.
      * When creating new page table, maybe out of memory. */
-	if (create==1 && (*pgdir_entryp & PTE_V)==0) {
-		if (page_alloc(&ppage)==-E_NO_MEM ) return -E_NO_MEM;//没有空间了，则返回失败信息
-		*pgdir_entryp = page2pa(ppage)|(PTE_V|PTE_R);//设置对应的标志位，这里的写入只是写入了一个32位值
+	if (create && (*pgdir_entryp & PTE_V)==0) {
+		if (page_alloc(&ppage)==-E_NO_MEM ) {
+			*ppte = 0;
+			return -E_NO_MEM;//没有空间了，则返回失败信息
+		}
+		*pgdir_entryp = PADDR( (Pde)page2kva(ppage) |(PTE_R | PTE_V) );//设置对应的标志位，这里的写入只是写入了一个32位值
 		ppage->pp_ref++;//让页引用变为1
 	}
 
     /* Step 3: Set the page table entry to `*ppte` as return value. */
+	if((*pgdir_entryp)==0) {
+		*ppte = 0;
+		return 0;
+	}
 	pgtable = (Pte*)KADDR(PTE_ADDR(*pgdir_entryp));
-	Pte *pgtable_entry = &pgtable[PTX(va)];
-	*ppte = pgtable_entry;
+	*ppte = &pgtable[PTX(va)];
     return 0;
 }
 
