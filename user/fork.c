@@ -85,13 +85,24 @@ pgfault(u_int va)
 	//	writef("fork.c:pgfault():\t va:%x\n",va);
     
     //map the new page at a temporary place
-
+	tmp=USTACKTOP;
+	va = ROUNDDOWN(va,BY2PG);
+	if (((*vpt)[VPN(va)] & PTE_COW)!=0) {
+		user_panic("no COW\n");
+	}
+	if (syscall_mem_alloc(0,tmp,PTE_V|PTE_R)!=0) {
+		user_panic("syscall_mem_alloc error!\n");
+	}
 	//copy the content
-	
+	user_bcopy((void*)va,tmp,BY2PG);
     //map the page on the appropriate place
-	
+	if (syscall_mem_map(0,tmp,0,va,PTE_V|PTE_R)!=0) {
+		user_panic("syscall_mem_map error!\n");
+	}
     //unmap the temporary place
-	
+	if (syscall_mem_unmap(0,tmp)!=0) {
+		user_panic("syscall_mem_unmap error!\n");
+	}
 }
 
 /* Overview:
@@ -156,9 +167,16 @@ fork(void)
 	extern struct Env *envs;
 	extern struct Env *env;
 	u_int i;
-
-
+	newenvid = syscall_env_alloc();
 	//The parent installs pgfault using set_pgfault_handler
+	set_pgfault_handler(pgfault);
+	if (newenvid==0) {
+		env=&(envs[ENVX(syscall_getenvid())]);
+	} else {
+		syscall_mem_alloc(newenvid, UXSTACKTOP - BY2PG, PTE_V|PTE_R);
+		syscall_set_pgfault_handler(newenvid, __asm_pgfault_handler, UXSTACKTOP);
+		syscall_set_env_status(newenvid,ENV_RUNNABLE);
+	}
 
 	//alloc a new alloc
 

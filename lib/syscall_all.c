@@ -63,6 +63,8 @@ u_int sys_getenvid(void)
  */
 void sys_yield(void)
 {
+	//类似于env_destroy，保存kernel_sp中的Trapframe，随后执行sched_yield;
+	bcopy((void*)(KERNEL_SP-sizeof(struct Trapframe)),(void*)TIMESTACK-sizeof(struct Trapframe),sizeof(struct Trapframe));
 	sched_yield();
 }
 
@@ -111,7 +113,7 @@ int sys_set_pgfault_handler(int sysno, u_int envid, u_int func, u_int xstacktop)
 	// Your code here.
 	struct Env *env;
 	int ret = 0;
-	ret = envid2env(envid,&env,0);
+	if ((ret = envid2env(envid,&env,0))!=0) return ret;
 	env->env_xstacktop = xstacktop;
 	env->env_pgfault_handler = func;
 	return ret;
@@ -145,9 +147,11 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	ret = 0;
 	assert(va%BY2PG==0);
 	if ((perm & PTE_V)==0 || (perm & PTE_COW)!=0 || va>=UTOP) return -E_INVAL;
-	if ((ret = envid2env(envid,&env,1))!=0) return ret;
+	if ((ret = envid2env(envid,&env,0))!=0) return ret;
 	if ((ret = page_alloc(&ppage))!=0) return ret;
+	//page_remove(env->env_pgdir,va);
 	if ((ret = page_insert(env->env_pgdir,ppage,va,perm))!=0) return ret;
+	ret = 0;
 	return ret;
 }
 
@@ -173,18 +177,18 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 	struct Env *dstenv;
 	struct Page *ppage;
 	Pte *ppte;
-
+    //your code here
 	ppage = NULL;
 	ret = 0;
 	round_srcva = ROUNDDOWN(srcva, BY2PG);
 	round_dstva = ROUNDDOWN(dstva, BY2PG);
-	if ((perm & PTE_COW)!=0 || srcva>=UTOP || dstva>=UTOP || (perm & PTE_V) == 0) return -E_INVAL;
+	if ((perm & PTE_COW)!=0 || srcva>=UTOP || dstva>=UTOP) return -E_INVAL;
 	if ((ret = envid2env(srcid,&srcenv,0))!=0) return ret;
 	if ((ret = envid2env(dstid,&dstenv,0))!=0) return ret;
-	pgdir_walk(srcenv->env_pgdir,srcva,0,&ppte);
-	ppage = page_lookup(srcenv->env_pgdir,srcva,&ppte);
-	if ((ret = page_insert(dstenv->env_pgdir,ppage,round_dstva,perm))!=0) return ret;
-    //your code here
+	ppage = page_lookup(srcenv->env_pgdir,srcva,&ppte);//获取srcva映射的page
+	pgdir_walk(srcenv->env_pgdir,srcva,0,&ppte);//获取srcva对应的页表项
+	if (ppte!=NULL && ((*ppte)&PTE_R==0) && (perm&PTE_R!=0)) return -E_INVAL;//企图从不可写映射到可写,返回错误
+	if ((ret = page_insert(dstenv->env_pgdir,ppage,dstva,perm))!=0) return ret;
 	return ret;
 }
 
@@ -202,7 +206,9 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
 	// Your code here.
 	int ret;
 	struct Env *env;
-
+	if (va>=UTOP) return -E_INVAL;
+	if ((ret = envid2env(envid,&env,0))!=0) return ret;
+	page_remove(env->env_pgdir,va);
 	return ret;
 	//	panic("sys_mem_unmap not implemented");
 }
@@ -224,12 +230,28 @@ int sys_env_alloc(void)
 	// Your code here.
 	int r;
 	struct Env *e;
+	Pte* ppte;
+	//以curenv->env_id作为父进程的id来创建一个子进程
 	if ((r = env_alloc(&e,curenv->env_id))!=0) return r;
-	bcopy(KERNEL_SP-sizeof(struct Trapframe),&e->env_tf,sizeof(struct Trapframe));
+	bcopy((void*)KERNEL_SP-sizeof(struct Trapframe),&(curenv->env_tf),sizeof(struct Trapframe));
+	bcopy(&(curenv->env_tf),&(e->env_tf),sizeof(struct Trapframe));
+	u_long i;
+	for (i = UTEXT;i<UTOP-2*BY2PG;i=i+BY2PG) {
+		ppte=0;
+		pgdir_walk(curenv->env_pgdir,i,0,&ppte);
+		if (ppte) {
+			if ((*ppte & PTE_V)!=0 && (*ppte & PTE_R)!=0) {
+				if (r=page_insert(curenv->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
+				if (r= page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
+			} else {
+				if (r=page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_V)) return r;
+			}
+		}
+	}
+
 	e->env_status = ENV_NOT_RUNNABLE;
-	e->env_pgfault_handler = 0;
 	e->env_tf.pc = e->env_tf.cp0_epc;
-	e->env_tf.regs[2] = 0;
+	e->env_tf.regs[2] = 0;//返回值寄存器设置为0
 	return e->env_id;
 	//	panic("sys_env_alloc not implemented");
 }
@@ -304,8 +326,8 @@ void sys_panic(int sysno, char *msg)
  */
 void sys_ipc_recv(int sysno, u_int dstva)
 {
-	if (dstva>=UTOP || ROUNDDOWN(dstva,BY2PG) != dstva) {
-		return -E_INVAL;
+	if (dstva>=UTOP) {
+		return;
 	}
 	curenv->env_ipc_dstva = dstva;
 	curenv->env_ipc_recving = 1;
@@ -337,7 +359,16 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	int r;
 	struct Env *e;
 	struct Page *p;
-
+	if ((r = envid2env(envid,&e,0))!=0) return r;
+	if (e->env_ipc_recving!=1) return -E_IPC_NOT_RECV;
+	e->env_ipc_recving=0;
+	e->env_ipc_from=curenv->env_id;
+	e->env_ipc_value=value;
+	e->env_status=ENV_RUNNABLE;
+	if (srcva!=0) {
+		if(r=sys_mem_map(sysno,curenv->env_id,srcva,envid,e->env_ipc_dstva,perm)) return r;
+		e->env_ipc_perm = perm;
+	}
 	return 0;
 }
 
