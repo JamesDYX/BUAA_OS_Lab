@@ -5,7 +5,6 @@ void umain()
 {
 	int a = 0;
 	int id = 0;
-	writef("umain\n");
 
 	if ((id = fork()) == 0) {
 		if ((id = fork()) == 0) {
@@ -28,4 +27,6 @@ void umain()
 	for (;;) {
 		writef("this is father: a:%d\n", a);
 	}
+}
+void myfunc() {
 }

@@ -96,13 +96,13 @@ static Pte *boot_pgdir_walk(Pde *pgdir, u_long va, int create)
     /* Step 1: Get the corresponding page directory entry and page table. */
     /* Hint: Use KADDR and PTE_ADDR to get the page table from page directory
      * entry value. */
-	pgdir_entryp = pgdir+PDX(va);//依然是一个虚拟地址
+	pgdir_entryp = &pgdir[PDX(va)];//依然是一个虚拟地址
 
     /* Step 2: If the corresponding page table is not exist and parameter `create`
      * is set, create one. And set the correct permission bits for this new page
      * table. */
-	if (create && !(*pgdir_entryp & PTE_V)) {//如果有效位是0且create被设置，那么创建一页
-		*pgdir_entryp = PADDR((Pte)alloc(BY2PG,BY2PG,1)) | PTE_V;
+	if (create && (!(*pgdir_entryp & PTE_V)) ) {//如果有效位是0且create被设置，那么创建一页
+		*pgdir_entryp = PADDR((Pde)alloc(BY2PG,BY2PG,1) | PTE_V);
 	}
 
     /* Step 3: Get the page table entry for `va`, and return it. */
@@ -126,15 +126,16 @@ void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
     Pte *pgtable_entry;
 
     /* Step 1: Check if `size` is a multiple of BY2PG. */
-	//if (size%BY2PG!=0) return;
-	size = ROUND(size,BY2PG);
+	if (size&0xfff) 
+		size = ROUND(size,BY2PG);
 	//assert(size%BY2PG==0);
 
     /* Step 2: Map virtual address space to physical address. */
     /* Hint: Use `boot_pgdir_walk` to get the page table entry of virtual address `va`. */
-	for (i = 0;i<size;i+=BY2PG) {
-		pgtable_entry = boot_pgdir_walk(pgdir,va+i,1);
-		*pgtable_entry = PTE_ADDR((pa+i)) | (perm|PTE_V);
+	for (i = 0;i<VPN(size);i++) {
+		va_temp = va+(i<<PGSHIFT);
+		pgtable_entry = boot_pgdir_walk(pgdir,va_temp,1);
+		*pgtable_entry = PTE_ADDR((pa+(i<<PGSHIFT))) | (perm|PTE_V);
 	}
 
 }
@@ -201,7 +202,7 @@ page_init(void)
 	freemem = ROUND(freemem,BY2PG);
     /* Step 3: Mark all memory blow `freemem` as used(set `pp_ref`
      * filed to 1) */
-	u_long used = (freemem-ULIM)/BY2PG;
+	u_long used = PPN(PADDR(freemem));
 	int i=0;
 	for (i=0;i<used;i++) {
 		pages[i].pp_ref=1;
@@ -265,7 +266,7 @@ void
 page_free(struct Page *pp)
 {
     /* Step 1: If there's still virtual address refers to this page, do nothing. */
-	if (pp->pp_ref>=1) return;
+	if (pp->pp_ref > 0) return;
     /* Step 2: If the `pp_ref` reaches to 0, mark this page as free and return. */
 	if (pp->pp_ref==0) {
 		LIST_INSERT_HEAD(&page_free_list,pp,pp_link);
@@ -309,12 +310,12 @@ pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
      * table.
      * When creating new page table, maybe out of memory. */
 	if (create && (*pgdir_entryp & PTE_V)==0) {
-		if (page_alloc(&ppage)==-E_NO_MEM ) {
+		if (page_alloc(&ppage)) {
 			*ppte = 0;
 			return -E_NO_MEM;//没有空间了，则返回失败信息
 		}
-		*pgdir_entryp = PADDR( (Pde)page2kva(ppage) |(PTE_R | PTE_V) );//设置对应的标志位，这里的写入只是写入了一个32位值
 		ppage->pp_ref++;//让页引用变为1
+		*pgdir_entryp = PADDR( (Pde)page2kva(ppage) |(PTE_R | PTE_V) );//设置对应的标志位，这里的写入只是写入了一个32位值
 	}
 
     /* Step 3: Set the page table entry to `*ppte` as return value. */
@@ -597,7 +598,6 @@ void pageout(int va, int context)
     }
 
     p->pp_ref++;
-	printf("va : %x\n",va);
 
     page_insert((Pde *)context, p, VA2PFN(va), PTE_R);
     printf("pageout:\t@@@___0x%x___@@@  ins a page \n", va);

@@ -239,11 +239,13 @@ int sys_env_alloc(void)
 		ppte=0;
 		pgdir_walk(curenv->env_pgdir,i,0,&ppte);
 		if (ppte) {
-			if ((*ppte & PTE_V)!=0 && (*ppte & PTE_R)!=0) {
-				if (r=page_insert(curenv->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
-				if (r= page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
-			} else {
-				if (r=page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_V)) return r;
+			if ((*ppte & PTE_V)!=0) {
+				if ((*ppte & PTE_R)!=0) {
+					if (r=page_insert(curenv->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
+					if (r= page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
+				} else {
+					if (r=page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_V)) return r;
+				}
 			}
 		}
 	}
@@ -251,8 +253,9 @@ int sys_env_alloc(void)
 	e->env_status = ENV_NOT_RUNNABLE;
 	e->env_tf.pc = e->env_tf.cp0_epc;
 	e->env_tf.regs[2] = 0;//返回值寄存器设置为0
+	//printf("sys_env_alloc return enf_id:%d\n",e->env_id);
+		//panic("sys_env_alloc not implemented");
 	return e->env_id;
-	//	panic("sys_env_alloc not implemented");
 }
 
 /* Overview:
