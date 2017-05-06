@@ -144,10 +144,11 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	struct Page *ppage;
 	int ret;
 	ret = 0;
-	assert(va%BY2PG==0);
-	if ((perm & PTE_COW)==PTE_COW || va>=UTOP) return -E_INVAL;
+	//首先满足基本条件
+	if ( (perm & PTE_COW) || va>=UTOP || ((perm & PTE_V)==0) ) return -E_INVAL;
 	if ((ret = envid2env(envid,&env,0))!=0) return ret;
 	if ((ret = page_alloc(&ppage))!=0) return ret;
+	//page_insert中已经隐含unmapping操作,无需我们再动手
 	if ((ret = page_insert(env->env_pgdir,ppage,va,perm))!=0) return ret;
 	ret = 0;
 	return ret;
@@ -180,13 +181,13 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 	ret = 0;
 	round_srcva = ROUNDDOWN(srcva, BY2PG);
 	round_dstva = ROUNDDOWN(dstva, BY2PG);
-	if ((perm & PTE_COW)!=0 || dstva>=UTOP) return -E_INVAL;
+	if ( (perm & PTE_COW)!=0 || dstva>=UTOP ) return -E_INVAL;
 	if ((ret = envid2env(srcid,&srcenv,0))!=0) return ret;
 	if ((ret = envid2env(dstid,&dstenv,0))!=0) return ret;
-	ppage = pa2page(va2pa(srcenv->env_pgdir,srcva));
-	//ppage = page_lookup(srcenv->env_pgdir,srcva,&ppte);//获取srcva映射的page
+	
+	ppage = page_lookup(srcenv->env_pgdir,srcva,&ppte);//获取srcva映射的page
 	pgdir_walk(srcenv->env_pgdir,srcva,0,&ppte);//获取srcva对应的页表项
-	if (ppte!=NULL && ((*ppte)&PTE_R==0) && (perm&PTE_R!=0)) return -E_INVAL;//企图从不可写映射到可写,返回错误
+	if ( ppte!=NULL && (((*ppte)&PTE_R)==0) && ((perm&PTE_R)!=0) ) return -E_INVAL;//企图从不可写映射到可写,返回错误
 	if ((ret = page_insert(dstenv->env_pgdir,ppage,dstva,perm))!=0) return ret;
 	return ret;
 }
@@ -207,6 +208,7 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
 	struct Env *env;
 	if (va>=UTOP) return -E_INVAL;
 	if ((ret = envid2env(envid,&env,0))!=0) return ret;
+	//直接调用page_remove的unmapping功能
 	page_remove(env->env_pgdir,va);
 	return ret;
 	//	panic("sys_mem_unmap not implemented");
@@ -231,29 +233,30 @@ int sys_env_alloc(void)
 	struct Env *e;
 	Pte* ppte;
 	//以curenv->env_id作为父进程的id来创建一个子进程
-	bcopy((void*)KERNEL_SP-sizeof(struct Trapframe),&(curenv->env_tf),sizeof(struct Trapframe));
 	if ((r = env_alloc(&e,curenv->env_id))!=0) return r;
-	bcopy(&(curenv->env_tf),&(e->env_tf),sizeof(struct Trapframe));
+	bcopy((void*)KERNEL_SP-sizeof(struct Trapframe),&(e->env_tf),sizeof(struct Trapframe));
 	u_long i;
+	//强行遍历
 	for (i = UTEXT;i<UTOP-2*BY2PG;i=i+BY2PG) {
 		ppte=0;
 		pgdir_walk(curenv->env_pgdir,i,0,&ppte);
 		if (ppte) {
 			if ((*ppte & PTE_V)!=0) {
 				if ((*ppte & PTE_R)!=0) {
-					if (r=page_insert(curenv->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
-					if (r= page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
+					if (r = page_insert(curenv->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
+					if (r = page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
 				} else {
-					if (r=page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_V)) return r;
+					if (r = page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_V)) return r;
 				}
 			}
 		}
 	}
 
+	//状态应该设置为ENV_NOT_RUNNABLE
 	e->env_status = ENV_NOT_RUNNABLE;
+	//CP0的EPC寄存器中已经保存了中断产生时的pc值,那就是子进程应该有的pc值
 	e->env_tf.pc = e->env_tf.cp0_epc;
-	e->env_tf.regs[2] = 0;//返回值寄存器设置为0
-	//printf("sys_env_alloc return enf_id:%d\n",e->env_id);
+	e->env_tf.regs[2] = 0;//返回值寄存器(v0)设置为0,只有这样才能在父子进程中分别返回不同的两个值
 		//panic("sys_env_alloc not implemented");
 	return e->env_id;
 }
@@ -276,7 +279,8 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	struct Env *env;
 	int ret;
 	if(ret=(envid2env(envid,&env,0))) return ret;
-	if((status!=ENV_FREE)&&(status!=ENV_NOT_RUNNABLE)&&(status!=ENV_RUNNABLE)) {
+	//如果不是一个有效的状态,那么返回-E_INVAL
+	if((status!=ENV_FREE) && (status!=ENV_NOT_RUNNABLE) && (status!=ENV_RUNNABLE)) {
 		return -E_INVAL;
 	}
 	env->env_status = status;
@@ -344,6 +348,7 @@ void sys_ipc_recv(int sysno, u_int dstva)
 	curenv->env_ipc_dstva = dstva;
 	curenv->env_ipc_recving = 1;
 	curenv->env_status = ENV_NOT_RUNNABLE;
+	//重新调度
 	sys_yield();
 }
 
