@@ -179,10 +179,7 @@ fork(void)
 		syscall_set_pgfault_handler(newenvid, __asm_pgfault_handler, UXSTACKTOP);
 		syscall_set_env_status(newenvid,ENV_RUNNABLE);
 	}
-
 	//alloc a new alloc
-
-
 	return newenvid;
 }
 
