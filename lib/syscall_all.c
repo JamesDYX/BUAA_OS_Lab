@@ -204,7 +204,7 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 int sys_mem_unmap(int sysno, u_int envid, u_int va)
 {
 	// Your code here.
-	int ret;
+	int ret=0;
 	struct Env *env;
 	if (va>=UTOP) return -E_INVAL;
 	if ((ret = envid2env(envid,&env,0))!=0) return ret;
