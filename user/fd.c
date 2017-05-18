@@ -197,12 +197,20 @@ read(int fdnum, void *buf, u_int n)
 	struct Fd *fd;
 
 	// Step 1: Get fd and dev.
-
+	if ((r = fd_lookup(fdnum, &fd)) < 0 ||  (r = dev_lookup(fd->fd_dev_id, &dev)) < 0) {
+		return r;
+	}
 	// Step 2: Check open mode.
+	if ((fd->fd_omode & O_ACCMODE) == O_WRONLY) {
+		return -E_INVAL;
+	}
 
 	// Step 3: Read starting from seek position.
-
+	r = (*dev->dev_read)(fd, buf, n, fd->fd_offset);
 	// Step 4: Update seek position and set '\0' at the end of buf.
+	if (r >= 0) {
+		fd->fd_offset += r;
+	}
 
 	return r;
 }
