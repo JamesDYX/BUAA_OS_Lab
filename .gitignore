@@ -1,4 +1,5 @@
-*.o
 *~
-*.swp
+*.o
 vmlinux
+*.x
+*.b
