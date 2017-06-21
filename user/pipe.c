@@ -85,10 +85,11 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 	// everybody left is what fd is.  So the other end of
 	// the pipe is closed.
 	int pfd,pfp,runs;
-	
-
-
-
+	if (pageref(fd)==pageref(p)) {
+		return 1;
+	} else {
+		return 0;
+	}
 //	panic("_pipeisclosed not implemented");
 //	return 0;
 }
@@ -120,7 +121,9 @@ piperead(struct Fd *fd, void *vbuf, u_int n, u_int offset)
 	int i;
 	struct Pipe *p;
 	char *rbuf;
-	
+
+	p = (struct Pipe*)fd2data(fd);
+	if (_pipeisclosed(fd,p)) return 0;
 
 
 //	panic("piperead not implemented");
@@ -145,7 +148,7 @@ pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
 
 	
 	//	return n;
-		}
+		//}
 //	panic("pipewrite not implemented");
 //	return -E_INVAL;
 	return n;
@@ -155,6 +158,7 @@ static int
 pipestat(struct Fd *fd, struct Stat *stat)
 {
 	struct Pipe *p;
+	p = (struct Pipe*)fd2data(fd);
 
 	
 
