@@ -21,7 +21,7 @@ void mips_init()
 	 * code_b.c*/
 	//ENV_CREATE(user_pingpong);
 	//ENV_CREATE(user_fktest);
-	ENV_CREATE(user_fstest);
+	//ENV_CREATE(user_fstest);
 	ENV_CREATE(fs_serv);
 
 	/*you may want to create process by MACRO, please read env.h file, in which you will find it. this MACRO is very
