@@ -120,12 +120,22 @@ piperead(struct Fd *fd, void *vbuf, u_int n, u_int offset)
 	// Use _pipeisclosed to check whether the pipe is closed.
 	int i;
 	struct Pipe *p;
-	char *rbuf;
+	char *rbuf = vbuf;
 
 	p = (struct Pipe*)fd2data(fd);
 	if (_pipeisclosed(fd,p)) return 0;
-
-
+	for (i=0;i<n;i++) {
+		if ( (p->p_rpos) >= (p->p_wpos) )  {
+			if (i==0)
+				syscall_yield();
+			else 
+				return i;
+		}
+		*rbuf = p->p_buf[(p->p_rpos)%BY2PIPE];
+		rbuf++;
+		(p->p_rpos)++;
+	}
+	return n;
 //	panic("piperead not implemented");
 //	return -E_INVAL;
 }
@@ -142,8 +152,22 @@ pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
 	// Use _pipeisclosed to check whether the pipe is closed.
 	int i;
 	struct Pipe *p;
-	char *wbuf;
-	
+	char *wbuf = vbuf;
+	p = (struct Pipe*)fd2data(fd);
+	if (_pipeisclosed(fd,p)) return 0;
+	for (i=0;i<n;i++) {
+		if ( (p->p_wpos - p->p_rpos) >= BY2PIPE )  {
+			if (i==0)
+				return 0;
+			else 
+				syscall_yield();
+				//wait(0);
+		}
+		p->p_buf[(p->p_wpos)%BY2PIPE] = (*wbuf);
+		wbuf++;
+		(p->p_wpos)++;
+	}
+
 
 
 	
