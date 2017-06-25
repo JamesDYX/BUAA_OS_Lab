@@ -85,7 +85,13 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 	// everybody left is what fd is.  So the other end of
 	// the pipe is closed.
 	int pfd,pfp,runs;
-	if (pageref(fd)==pageref(p)) {
+	runs = env->env_runs;
+	pfd = pageref(fd);
+	if (runs != (env->env_runs)) return 0;
+	pfp = pageref(p);
+	if (runs != (env->env_runs)) return 0;
+	env->env_runs = (env->env_runs)+1;
+	if (pfd==pfp) {
 		return 1;
 	} else {
 		return 0;
@@ -183,15 +189,14 @@ pipestat(struct Fd *fd, struct Stat *stat)
 {
 	struct Pipe *p;
 	p = (struct Pipe*)fd2data(fd);
-
-	
-
 }
 
 static int
 pipeclose(struct Fd *fd)
 {
-	syscall_mem_unmap(0, fd2data(fd));
+	struct Pipe *p = (struct Pipe*)fd2data(fd);
+	//syscall_mem_unmap(0, (u_int)fd);
+	syscall_mem_unmap(0, (u_int)p);
 	return 0;
 }
 

@@ -39,7 +39,7 @@ fd_alloc(struct Fd **fd)
 {
 	// Your code here.
 	//
-	// Find the smallest i from 0 to MAXFD-1 that doesn't have
+	// Find the sallest i from 0 to MAXFD-1 that doesn't have
 	// its fd page mapped.  Set *fd to the fd page virtual address.
 	// (Do not allocate a page.  It is up to the caller to allocate
 	// the page.  This means that if someone calls fd_alloc twice
@@ -55,7 +55,7 @@ fd_alloc(struct Fd **fd)
 		if(((* vpd)[va/PDMAP] & PTE_V)==0)
 		{
 			*fd = va;
-			return 0;
+		return 0;
 		}
 //writef("fd_alloc:va = %x\n",va);
 		if(((* vpt)[va/BY2PG] & PTE_V)==0)		//the fd is not used
@@ -82,7 +82,7 @@ fd_lookup(int fdnum, struct Fd **fd)
 	// Check that fdnum is in range and mapped.  If not, return -E_INVAL.
 	// Set *fd to the fd page virtual address.  Return 0.
 	u_int va;
-	
+
 	if(fdnum >=MAXFD)
 		return -E_INVAL;
 
@@ -110,7 +110,7 @@ fd2num(struct Fd *fd)
 int
 num2fd(int fd)
 {
-	return fd*BY2PG+FDTABLE;
+	return fd*BY2PG+FDTABLE;
 }
 
 int
@@ -123,8 +123,8 @@ close(int fdnum)
 	if ((r = fd_lookup(fdnum, &fd)) < 0
 	||  (r = dev_lookup(fd->fd_dev_id, &dev)) < 0)
 		return r;
-	r = (*dev->dev_close)(fd);
 	fd_close(fd);
+	r = (*dev->dev_close)(fd);
 	return r;
 }
 
@@ -144,9 +144,9 @@ dup(int oldfdnum, int newfdnum)
 	u_int ova, nva, pte;
 	struct Fd *oldfd, *newfd;
 	//writef("dup comes 1;\n");
+	close(newfdnum);
 	if ((r = fd_lookup(oldfdnum, &oldfd)) < 0)
 		return r;
-	close(newfdnum);
 	//writef("dup comes 2;\n");
 	newfd = (struct Fd*)INDEX2FD(newfdnum);
 	ova = fd2data(oldfd);
