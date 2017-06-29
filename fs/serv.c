@@ -97,7 +97,7 @@ serve_open(u_int envid, struct Fsreq_open *rq)
 	// Copy in the path, making sure it's null-terminated
 	user_bcopy(rq->req_path, path, MAXPATHLEN);
 	path[MAXPATHLEN-1] = 0;
-//writef("serve_open:enter open %s\n",rq->req_path);
+//writef("serve_open:enter open %s\n",rq->req_path);//*******Debug
 	// Find a file id.
 	
 	if ((r = open_alloc(&o)) < 0) {
@@ -106,13 +106,13 @@ serve_open(u_int envid, struct Fsreq_open *rq)
 	}
 	fileid = r;
 	
-//writef("serve_open:ending find a file id	o = %x\n",o);
+//writef("serve_open:ending find a file id	o = %x\n",o);//********Debug
 	// Open the file.
 	if ((r = file_open(path, &f)) < 0) {
 		writef("file_open failed: %e", r);
 		goto out;
 	}
-//writef("serve_open:ending open the file\n");
+//writef("serve_open:ending open the file\n");//*********Debug
 	// Save the file pointer.
 	o->o_file = f;
 
@@ -123,7 +123,7 @@ serve_open(u_int envid, struct Fsreq_open *rq)
 	o->o_mode = rq->req_omode;
 	ff->f_fd.fd_omode = o->o_mode;
 	ff->f_fd.fd_dev_id = devfile.dev_id;
-//writef("serve_open:will to ipc send\n");
+//writef("serve_open:will to ipc send\n");//*********Debug
 	if (debug) writef("sending success, page %08x\n", (u_int)o->o_ff);
 	ipc_send(envid, 0, (u_int)o->o_ff, PTE_V|PTE_R|PTE_LIBRARY);
 //writef("serve_open:end of open %s\n",rq->req_path);

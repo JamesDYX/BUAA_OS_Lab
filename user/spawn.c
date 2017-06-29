@@ -26,7 +26,7 @@ init_stack(u_int child, char **argv, u_int *init_esp)
 	strings = (char*)TMPPAGETOP - tot;
 	args = (u_int*)(TMPPAGETOP - ROUND(tot, 4) - 4*(argc+1));
 
-	if ((r = syscall_mem_alloc(0, TMPPAGE, PTE_V|PTE_R)) < 0)
+	if ((r = syscall_mem_alloc(0, TMPPAGE, PTE_V|PTE_R|PTE_LIBRARY)) < 0)
 		return r;
 	// Replace this with your code to:
 	//

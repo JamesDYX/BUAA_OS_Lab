@@ -10,7 +10,6 @@ void syscall_putchar(char ch)
 }
 
 
-
 u_int
 syscall_getenvid(void)
 {
