@@ -123,8 +123,8 @@ close(int fdnum)
 	if ((r = fd_lookup(fdnum, &fd)) < 0
 	||  (r = dev_lookup(fd->fd_dev_id, &dev)) < 0)
 		return r;
-	fd_close(fd);
 	r = (*dev->dev_close)(fd);
+	fd_close(fd);
 	return r;
 }
 
@@ -143,18 +143,17 @@ dup(int oldfdnum, int newfdnum)
 	int i, r;
 	u_int ova, nva, pte;
 	struct Fd *oldfd, *newfd;
-	//writef("dup comes 1;\n");
+	
 	close(newfdnum);
 	if ((r = fd_lookup(oldfdnum, &oldfd)) < 0)
 		return r;
-	//writef("dup comes 2;\n");
+
 	newfd = (struct Fd*)INDEX2FD(newfdnum);
 	ova = fd2data(oldfd);
 	nva = fd2data(newfd);
-
 	if ((r = syscall_mem_map(0, (u_int)oldfd, 0, (u_int)newfd, ((*vpt)[VPN(oldfd)])&(PTE_V|PTE_R|PTE_LIBRARY))) < 0)
 		goto err;
-//writef("dup comes 2.5;\n");
+
 	if ((* vpd)[PDX(ova)]) {
 		for (i=0; i<PDMAP; i+=BY2PG) {
 			pte = (* vpt)[VPN(ova+i)];
@@ -165,11 +164,9 @@ dup(int oldfdnum, int newfdnum)
 			}
 		}
 	}
-//writef("dup comes 3;\n");
 	return newfdnum;
 
 err:
-//writef("dup comes 4;\n");
 	syscall_mem_unmap(0, (u_int)newfd);
 	for (i=0; i<PDMAP; i+=BY2PG)
 		syscall_mem_unmap(0, nva+i);

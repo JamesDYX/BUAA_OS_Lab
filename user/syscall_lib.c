@@ -57,9 +57,17 @@ int syscall_env_alloc(void)
 	
 	int a= msyscall(SYS_env_alloc,0,0,0,0,0);
 	//writef("syscall_env_alloc(): return : %x\n",a);
-	writef("");
 	return a;
 }
+//===========================================================
+int syscall_env_alloc_fork(void)
+{
+	
+	int a= msyscall(SYS_env_alloc,1,0,0,0,0);
+	//writef("syscall_env_alloc(): return : %x\n",a);
+	return a;
+}
+//==========================================================
 
 int
 syscall_set_env_status(u_int envid, u_int status)

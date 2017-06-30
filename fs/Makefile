@@ -71,6 +71,8 @@ all: serv.x fs.img serv.b
 
 fs.img: $(FSIMGFILES)
 	dd if=/dev/zero of=../gxemul/fs.img bs=4096 count=1024 2>/dev/null
+	gcc $(INCLUDES) fsformat.c -o fsformat -m32
+	chmod +x ./fsformat
 	./fsformat ../gxemul/fs.img $(FSIMGFILES)
 
 .PHONY: clean

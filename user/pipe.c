@@ -85,17 +85,14 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 	// everybody left is what fd is.  So the other end of
 	// the pipe is closed.
 	int pfd,pfp,runs;
-	runs = env->env_runs;
-	pfd = pageref(fd);
-	if (runs != (env->env_runs)) return 0;
-	pfp = pageref(p);
-	if (runs != (env->env_runs)) return 0;
-	env->env_runs = (env->env_runs)+1;
-	if (pfd==pfp) {
+	do {
+		runs = env->env_runs;
+		pfd = pageref(fd);
+		pfp = pageref(p);
+	} while (runs!=(env->env_runs));
+	if (pfd==pfp) 
 		return 1;
-	} else {
-		return 0;
-	}
+	return 0;
 //	panic("_pipeisclosed not implemented");
 //	return 0;
 }
@@ -131,17 +128,25 @@ piperead(struct Fd *fd, void *vbuf, u_int n, u_int offset)
 	p = (struct Pipe*)fd2data(fd);
 	if (_pipeisclosed(fd,p)) return 0;
 	for (i=0;i<n;i++) {
+		/*
 		if ( (p->p_rpos) >= (p->p_wpos) )  {
 			if (i==0)
 				syscall_yield();
 			else 
 				return i;
 		}
+		*/
+		while ( (p->p_rpos) >= (p->p_wpos) )  {
+			if (_pipeisclosed(fd,p))
+				return i;
+			syscall_yield();
+		}
 		*rbuf = p->p_buf[(p->p_rpos)%BY2PIPE];
 		rbuf++;
 		(p->p_rpos)++;
 	}
-	return n;
+	//return n;
+	return i;
 //	panic("piperead not implemented");
 //	return -E_INVAL;
 }
@@ -162,6 +167,7 @@ pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
 	p = (struct Pipe*)fd2data(fd);
 	if (_pipeisclosed(fd,p)) return 0;
 	for (i=0;i<n;i++) {
+		/*
 		if ( (p->p_wpos - p->p_rpos) >= BY2PIPE )  {
 			if (i==0)
 				return 0;
@@ -169,14 +175,17 @@ pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
 				syscall_yield();
 				//wait(0);
 		}
+		*/
+		while ( (p->p_wpos - p->p_rpos) >= BY2PIPE )  {
+			if (_pipeisclosed(fd,p))
+				return i;
+			syscall_yield();
+		}
+
 		p->p_buf[(p->p_wpos)%BY2PIPE] = (*wbuf);
 		wbuf++;
 		(p->p_wpos)++;
 	}
-
-
-
-	
 	//	return n;
 		//}
 //	panic("pipewrite not implemented");
@@ -189,14 +198,18 @@ pipestat(struct Fd *fd, struct Stat *stat)
 {
 	struct Pipe *p;
 	p = (struct Pipe*)fd2data(fd);
+	p = (struct Pipe *)fd2data(fd);
+	strcpy(stat->st_name, "<pipe>");
+	stat->st_size = p->p_wpos - p->p_rpos;
+	stat->st_isdir = 0;
+	stat->st_dev = &devpipe;
+	return 0;
 }
 
 static int
 pipeclose(struct Fd *fd)
 {
-	struct Pipe *p = (struct Pipe*)fd2data(fd);
-	//syscall_mem_unmap(0, (u_int)fd);
-	syscall_mem_unmap(0, (u_int)p);
+	syscall_mem_unmap(0, fd2data(fd));
 	return 0;
 }
 

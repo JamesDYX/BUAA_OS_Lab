@@ -15,6 +15,7 @@ umain(void)
 	if ((pid=fork()) < 0)
 		user_panic("fork: %e", i);
 
+
 	if (pid == 0) {
 		writef("[%08x] pipereadeof close %d\n", env->env_id, p[1]);
 		close(p[1]);

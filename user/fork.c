@@ -171,7 +171,7 @@ fork(void)
     //必须先设置pgfault
     set_pgfault_handler(pgfault);
     //然后才能调用syscall_env_alloc，否则会在异常中无法自拔
-    newenvid = syscall_env_alloc();
+    newenvid = syscall_env_alloc_fork();
     if (newenvid==0) {
         env=&(envs[ENVX(syscall_getenvid())]);
     } else {
