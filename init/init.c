@@ -20,7 +20,8 @@ void mips_init()
 	/*you can create some processes(env) here. in terms of binary code, please refer current directory/code_a.c
 	 * code_b.c*/
 	//ENV_CREATE(user_pingpong);
-	ENV_CREATE(user_fktest);
+	ENV_CREATE(user_fstest);
+	ENV_CREATE(fs_serv);
 
 	/*you may want to create process by MACRO, please read env.h file, in which you will find it. this MACRO is very
 	 * interesting, have fun please*/

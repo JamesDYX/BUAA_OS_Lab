@@ -195,7 +195,7 @@ struct File *create_file(struct File *dirf) {
     struct File *dirblk;
     int i, bno, found;
     int nblk = dirf->f_size / BY2BLK;
-    
+
     if(nblk == 0) {
         // Empty directory.
         return (struct File *)(disk[make_link_block(dirf, 0)].data);
@@ -227,7 +227,7 @@ void write_file(struct File *dirf, const char *path) {
     uint8_t buffer[n+1], *dist;
     struct File *target = create_file(dirf);
     int fd = open(path, O_RDONLY);
-    
+
     // Get file name with no path prefix.
     const char *fname = strrchr(path, '/');
     if(fname)
@@ -235,10 +235,10 @@ void write_file(struct File *dirf, const char *path) {
     else
         fname = path;
     strcpy(target->f_name, fname);
-    
+
     target->f_size = lseek(fd, 0, SEEK_END);
     target->f_type = FTYPE_REG;
-    
+
     // Start reading file.
     lseek(fd, 0, SEEK_SET);
     while((r = read(fd, disk[nextbno].data, n)) > 0) {
@@ -280,3 +280,4 @@ Usage: fsformat gxemul/fs.img files...\n\
 
     return 0;
 }
+
