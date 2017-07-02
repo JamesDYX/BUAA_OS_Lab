@@ -90,9 +90,7 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 		pfd = pageref(fd);
 		pfp = pageref(p);
 	} while (runs!=(env->env_runs));
-	if (pfd==pfp) 
-		return 1;
-	return 0;
+	return (pfd==pfp? 1:0);
 //	panic("_pipeisclosed not implemented");
 //	return 0;
 }
@@ -128,14 +126,6 @@ piperead(struct Fd *fd, void *vbuf, u_int n, u_int offset)
 	p = (struct Pipe*)fd2data(fd);
 	if (_pipeisclosed(fd,p)) return 0;
 	for (i=0;i<n;i++) {
-		/*
-		if ( (p->p_rpos) >= (p->p_wpos) )  {
-			if (i==0)
-				syscall_yield();
-			else 
-				return i;
-		}
-		*/
 		while ( (p->p_rpos) >= (p->p_wpos) )  {
 			if (_pipeisclosed(fd,p))
 				return i;
@@ -145,7 +135,6 @@ piperead(struct Fd *fd, void *vbuf, u_int n, u_int offset)
 		rbuf++;
 		(p->p_rpos)++;
 	}
-	//return n;
 	return i;
 //	panic("piperead not implemented");
 //	return -E_INVAL;
@@ -167,15 +156,6 @@ pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
 	p = (struct Pipe*)fd2data(fd);
 	if (_pipeisclosed(fd,p)) return 0;
 	for (i=0;i<n;i++) {
-		/*
-		if ( (p->p_wpos - p->p_rpos) >= BY2PIPE )  {
-			if (i==0)
-				return 0;
-			else 
-				syscall_yield();
-				//wait(0);
-		}
-		*/
 		while ( (p->p_wpos - p->p_rpos) >= BY2PIPE )  {
 			if (_pipeisclosed(fd,p))
 				return i;
@@ -186,10 +166,6 @@ pipewrite(struct Fd *fd, const void *vbuf, u_int n, u_int offset)
 		wbuf++;
 		(p->p_wpos)++;
 	}
-	//	return n;
-		//}
-//	panic("pipewrite not implemented");
-//	return -E_INVAL;
 	return n;
 }
 

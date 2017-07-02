@@ -224,7 +224,7 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
  * 	In the child, the register set is tweaked so sys_env_alloc returns 0.
  * 	Returns envid of new environment, or < 0 on error.
  */
-int sys_env_alloc(int sysno,int isfork)
+int sys_env_alloc(int sysno,int iffork)
 {
 	// Your code here.
 	int r;
@@ -234,7 +234,7 @@ int sys_env_alloc(int sysno,int isfork)
 	bcopy((void*)KERNEL_SP-sizeof(struct Trapframe),&(curenv->env_tf),sizeof(struct Trapframe));
 	if ((r = env_alloc(&e,curenv->env_id))!=0) return r;
 	bcopy(&(curenv->env_tf),&(e->env_tf),sizeof(struct Trapframe));
-	if (isfork) {
+	if (iffork) {
 	u_long i;
 	for (i = UTEXT;i<UTOP-2*BY2PG;i=i+BY2PG) {
 		ppte=0;

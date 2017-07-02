@@ -106,7 +106,7 @@ int spawn(char *prog, char **argv)
 			user_panic("spawn:open %s:%e",prog,fd);
 
 		u_int child_envid;
-		child_envid = syscall_env_alloc();//fork();//syscall_env_alloc();
+		child_envid = syscall_env_alloc(0);//syscall_env_alloc();
 		if(child_envid < 0)
 		{
 			writef("spawn:alloc the new env is wrong\n");
