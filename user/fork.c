@@ -171,7 +171,7 @@ fork(void)
 	//必须先设置pgfault
 	set_pgfault_handler(pgfault);
 	//然后才能调用syscall_env_alloc，否则会在异常中无法自拔
-	newenvid = syscall_env_alloc();
+	newenvid = syscall_env_alloc(1);
 	if (newenvid==0) {
 		env=&(envs[ENVX(syscall_getenvid())]);
 	} else {
@@ -187,6 +187,30 @@ fork(void)
 int
 sfork(void)
 {
-	user_panic("sfork not implemented");
-	return -E_INVAL;
+	u_int newenvid;
+	extern struct Env *envs;
+	extern struct Env *env;
+	u_int i;
+	//The parent installs pgfault using set_pgfault_handler
+	set_pgfault_handler(pgfault);
+	newenvid = syscall_env_alloc(0);
+	if (newenvid==0) {
+		env=&(envs[ENVX(syscall_getenvid())]);
+	} else {
+		for (i = UTEXT;i<UTOP-3*BY2PG;i=i+BY2PG) {
+			u_int perm = ((*vpt)[VPN(i)])&0xfff;
+			if ((perm & PTE_V)!=0) {
+				if ((perm & PTE_R)!=0) {
+					syscall_mem_map(0,i,newenvid,i,perm|PTE_LIBRARY);
+				} else {
+					syscall_mem_map(0,i,newenvid,i,perm);
+				}
+			}
+		}
+		syscall_mem_alloc(newenvid, UXSTACKTOP - BY2PG, PTE_V|PTE_R);
+		syscall_set_pgfault_handler(newenvid, __asm_pgfault_handler, UXSTACKTOP);
+		syscall_set_env_status(newenvid,ENV_RUNNABLE);
+	}
+	//alloc a new alloc
+	return newenvid;
 }

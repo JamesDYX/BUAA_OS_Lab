@@ -226,7 +226,7 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
  * 	In the child, the register set is tweaked so sys_env_alloc returns 0.
  * 	Returns envid of new environment, or < 0 on error.
  */
-int sys_env_alloc(void)
+int sys_env_alloc(int sysno,int isfork)
 {
 	// Your code here.
 	int r;
@@ -236,18 +236,33 @@ int sys_env_alloc(void)
 	if ((r = env_alloc(&e,curenv->env_id))!=0) return r;
 	bcopy((void*)KERNEL_SP-sizeof(struct Trapframe),&(e->env_tf),sizeof(struct Trapframe));
 	u_long i;
-	//强行遍历
-	for (i = UTEXT;i<UTOP-2*BY2PG;i=i+BY2PG) {
-		ppte=0;
-		pgdir_walk(curenv->env_pgdir,i,0,&ppte);
-		if (ppte) {
-			if ((*ppte & PTE_V)!=0) {
-				if ((*ppte & PTE_R)!=0) {
-					if (r = page_insert(curenv->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
-					if (r = page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
-				} else {
-					if (r = page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_V)) return r;
+	if (isfork) {
+		//强行遍历
+		for (i = UTEXT;i<UTOP-3*BY2PG;i=i+BY2PG) {
+			ppte=0;
+			pgdir_walk(curenv->env_pgdir,i,0,&ppte);
+			if (ppte) {
+				if ((*ppte & PTE_V)!=0) {
+					if ((*ppte & PTE_R)!=0) {
+						if (r = page_insert(curenv->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
+						if (r = page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
+					} else {
+						if (r = page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_V)) return r;
+					}
 				}
+			}
+		}
+	}
+	i = UTOP-3*BY2PG;
+	ppte=0;
+	pgdir_walk(curenv->env_pgdir,i,0,&ppte);
+	if (ppte) {
+		if ((*ppte & PTE_V)!=0) {
+			if ((*ppte & PTE_R)!=0) {
+				if (r = page_insert(curenv->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
+				if (r = page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_R|PTE_V|PTE_COW)) return r;
+			} else {
+				if (r = page_insert(e->env_pgdir,pa2page(PTE_ADDR(*ppte)),i,PTE_V)) return r;
 			}
 		}
 	}

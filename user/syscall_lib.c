@@ -55,12 +55,10 @@ syscall_mem_unmap(u_int envid, u_int va)
 	return msyscall(SYS_mem_unmap, envid, va, 0, 0, 0);
 }
 
-int syscall_env_alloc(void)
+int syscall_env_alloc(int isfork)
 {
 
-	int a = msyscall(SYS_env_alloc, 0, 0, 0, 0, 0);
-	//writef("syscall_env_alloc(): return : %x\n",a);
-	writef("");
+	int a = msyscall(SYS_env_alloc, isfork, 0, 0, 0, 0);
 	return a;
 }
 
