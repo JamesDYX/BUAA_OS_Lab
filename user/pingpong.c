@@ -3,7 +3,7 @@
 
 #include "lib.h"
 
-
+/*
 void
 umain(void)
 {
@@ -37,24 +37,26 @@ umain(void)
 	}
 
 }
-/*
+*/
+int x = 0;
 void
 umain(void) {
     u_int pid;
-	env->env_ipc_value = 0;
+	//env->env_ipc_value = 0;
 	pid = sfork();
     if(pid==0){
-		while (env->env_ipc_value<10) {
-			writef("Child_value:%d\n",env->env_ipc_value);
+		while (x<10) {//env->env_ipc_value<10) {
+			writef("Child_value:%d\n",x);//env->env_ipc_value);
 			syscall_yield();
 		}
     } else {
-		while (env->env_ipc_value<10) {
-			writef("Father_value:%d\n",env->env_ipc_value);
-			env->env_ipc_value += 1;
+		while (x<10) {//env->env_ipc_value<10) {
+			writef("Father_value:%d\n",x);//env->env_ipc_value);
+			//env->env_ipc_value += 1;
+			x++;
 			syscall_yield();
 		}
     }
     return;
 }
-*/
+
