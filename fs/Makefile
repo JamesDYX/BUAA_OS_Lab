@@ -37,7 +37,9 @@ FSIMGFILES := 	motd \
 			../user/init.b \
 			../user/sh.b \
 			../user/cat.b \
-			../user/ls.b
+			../user/ls.b \
+			../user/date.b \
+			../user/exit.b
 
 
 CFLAGS += -nostdlib -static

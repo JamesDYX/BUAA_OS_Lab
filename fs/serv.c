@@ -110,6 +110,8 @@ serve_open(u_int envid, struct Fsreq_open *rq)
 	// Open the file.
 	if ((r = file_open(path, &f)) < 0) {
 		writef("file_open failed: %e", r);
+		if (r==-E_NOT_FOUND) writef("E_NOT_FOUND\n");
+		if (r==-E_BAD_PATH) writef("E_BAD_PATH\n");
 		goto out;
 	}
 //writef("serve_open:ending open the file\n");//*********Debug

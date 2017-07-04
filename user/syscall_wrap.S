@@ -37,3 +37,17 @@ jr	ra
 
 END(msyscall)
 
+LEAF(getDate)
+	lw t0,0x95000000
+	lw v0,0x95000010
+	jr	ra
+	nop
+END(getDate)
+
+LEAF(exitShell)
+	lw t0,0x90000010
+	jr	ra
+	nop
+END(exitShell)
+
+
