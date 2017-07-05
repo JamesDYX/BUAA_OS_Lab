@@ -45,7 +45,18 @@ void date(int Cal) {
 	}
 	day++;
 	if (!Cal) {
-		writef("%d/%d/%d %d:%d:%d\n",year,month,day,hour+8,minute,second);
+		int WeekDay = (origin_day+3)%7+1;
+		switch (WeekDay) {
+			case 1:writef("Mon\t");break;
+			case 2:writef("Tues\t");break;
+			case 3:writef("Wed\t");break;
+			case 4:writef("Thur\t");break;
+			case 5:writef("Fri\t");break;
+			case 6:writef("Sat\t");break;
+			case 7:writef("Sun\t");break;
+			default:break;
+		}
+		writef("%d/%d/%d %d:%d:%d CST\n",year,month,day,hour+8,minute,second);
 	} else {
 		int WeekDay = (origin_day+3)%7+1;
 		int firstDay;
