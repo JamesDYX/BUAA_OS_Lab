@@ -43,7 +43,7 @@ void
 umain(void) {
     u_int pid;
 	//env->env_ipc_value = 0;
-	pid = sfork();
+	pid = fork();
     if(pid==0){
 		while (x<10) {//env->env_ipc_value<10) {
 			writef("Child_value:%d\n",x);//env->env_ipc_value);
