@@ -38,11 +38,11 @@ umain(void)
 
 }
 */
-int x = 0;
 void
 umain(void) {
     u_int pid;
 	//env->env_ipc_value = 0;
+	int x = 0;
 	pid = sfork();
     if(pid==0){
 		while (x<10) {//env->env_ipc_value<10) {
